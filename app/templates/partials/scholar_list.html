@@ -1,0 +1,31 @@
+{% if not append %}
+{% for s in scholars %}
+<li>
+    <a href="#" hx-get="/scholars/{{ s.id }}" hx-target="#scholar-detail">
+        {{ s.name }}
+    </a>
+</li>
+{% else %}
+<li style="padding:8px; color:#888;">No scholars found.</li>
+{% endfor %}
+{% else %}
+{# Load More: htmx hx-swap="beforeend" appends just these <li> elements #}
+{% for s in scholars %}
+<li>
+    <a href="#" hx-get="/scholars/{{ s.id }}" hx-target="#scholar-detail">
+        {{ s.name }}
+    </a>
+</li>
+{% endfor %}
+{% endif %}
+
+{% if offset + scholars|length < total %}
+<li id="load-more-row" style="list-style:none; padding:6px 0;">
+    <button type="button" class="secondary" style="width:100%; font-size:12px;"
+            hx-get="/scholars/list" hx-include="[name='q'], #year-filter"
+            hx-vals='{"offset": {{ offset + limit }}, "limit": {{ limit }}}'
+            hx-target="#load-more-row" hx-swap="outerHTML">
+        Load more ({{ total - offset - scholars|length }} remaining)
+    </button>
+</li>
+{% endif %}
