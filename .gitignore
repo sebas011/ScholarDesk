@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+grants.db
+grants.db-wal
+grants.db-shm
+.venv/
+
+# PyInstaller build/output - these bundle a full copy of grants.db
+# (real scholar names, ages, etc.) plus logs, so they must never be
+# committed even though grants.db itself already is.
+build/
+dist/
+logs/
+*.log
+.venv/
