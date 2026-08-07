@@ -50,7 +50,11 @@ def list_scholars(
         for g in db.query(Grant).all():
             if grant_active_in_year(g, year):
                 matching_ids.add(g.scholar_id)
-        query = query.filter(Scholar.id.in_(matching_ids)) if matching_ids else query.filter(Scholar.id == None)
+        query = (
+            query.filter(Scholar.id.in_(matching_ids))
+            if matching_ids
+            else query.filter(Scholar.id == None)  # noqa: E711 - SQLAlchemy needs `== None` to build IS NULL; `is None` would do a Python identity check, not build SQL, and silently return no filter at all.
+        )
 
     total = query.count()
     results = query.order_by(Scholar.name).offset(offset).limit(limit).all()
