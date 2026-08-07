@@ -14,10 +14,24 @@ from app.core.exceptions import (
     ScholarNotFoundError,
 )
 
+def _parse_year(year: str | None) -> int | None:
+    """Query params arrive as strings. The 'All Years' option in the
+    filter dropdown submits year='' rather than omitting the param
+    entirely, and int | None as a param type rejects '' with a 422 -
+    so empty string must be normalized to None before FastAPI's
+    validation ever sees it."""
+    if year is None or year.strip() == "":
+        return None
+    try:
+        return int(year)
+    except ValueError:
+        return None
+    
 router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
-def home(request: Request, year: int | None = None, db: Session = Depends(get_db)):
+def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
+    year = _parse_year(year)
     from app.services import stats as stats_service
     from datetime import date as _date
 
