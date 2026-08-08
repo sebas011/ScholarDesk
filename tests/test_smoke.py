@@ -54,6 +54,17 @@ def test_home_starts_empty(client):
     assert '<div class="num">0</div>' in resp.text
 
 
+def test_empty_year_param_does_not_422(client):
+    """Regression test: the year-filter dropdown's 'All Years' option
+    submits year='' rather than omitting the param entirely. All three
+    routes that accept `year` used to declare it as int | None, which
+    FastAPI rejects with a 422 the moment it sees an empty string -
+    instead of treating it as 'no filter applied'."""
+    for url in ("/", "/scholars", "/scholars/list"):
+        resp = client.get(url, params={"year": ""})
+        assert resp.status_code == 200, f"{url}?year= returned {resp.status_code}, expected 200"
+        
+
 def test_create_scholar_with_assignment(client):
     resp = client.post(
         "/scholars",
