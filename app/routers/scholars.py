@@ -269,4 +269,5 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
                 "error": str(e),
             },
         )
-    return HTMLResponse("", headers={"HX-Trigger": "scholar-changed"})  # htmx swaps the detail panel to empty on delete
+    # htmx swaps the detail panel to empty on delete
+    return HTMLResponse("", headers={"HX-Trigger": "scholar-changed"})
