@@ -46,7 +46,13 @@ def add_assignment(
 ):
     try:
         dept_service.create_assignment(
-            db, scholar_id, department, rank, tenure, parse_date(date_started), parse_date(date_ended)
+            db,
+            scholar_id,
+            department,
+            rank,
+            tenure,
+            parse_date(date_started),
+            parse_date(date_ended),
         )
         db.commit()
     except ValueError as e:
@@ -56,7 +62,9 @@ def add_assignment(
 
 
 @router.delete("/assignments/{assignment_id}", response_class=HTMLResponse)
-def delete_assignment(request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)):
+def delete_assignment(
+    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+):
     try:
         dept_service.delete_assignment(db, assignment_id)
         db.commit()

@@ -34,7 +34,9 @@ class DepartmentAssignment(Base):
     __tablename__ = "department_assignments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    scholar_id: Mapped[int] = mapped_column(ForeignKey("scholars.id", ondelete="CASCADE"), index=True)
+    scholar_id: Mapped[int] = mapped_column(
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+    )
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     rank: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tenure: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -48,7 +50,9 @@ class Grant(Base):
     __tablename__ = "grants"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    scholar_id: Mapped[int] = mapped_column(ForeignKey("scholars.id", ondelete="CASCADE"), index=True)
+    scholar_id: Mapped[int] = mapped_column(
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+    )
     program_applied: Mapped[str] = mapped_column(String(300), nullable=False)
     type_of_grant: Mapped[str | None] = mapped_column(String(150), nullable=True)
     delivering_hei: Mapped[str | None] = mapped_column(String(200), nullable=True)

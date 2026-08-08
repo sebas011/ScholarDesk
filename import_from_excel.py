@@ -112,7 +112,10 @@ def main(xlsx_path: str):
             old_emp_id = row.get("EmployeeID")
             new_id = employee_id_map.get(int(old_emp_id)) if old_emp_id is not None else None
             if new_id is None:
-                print(f"  SKIPPED assignment row {row}: EmployeeID {old_emp_id} has no matching scholar")
+                print(
+                    f"  SKIPPED assignment row {row}: "
+                    f"EmployeeID {old_emp_id} has no matching scholar"
+                )
                 counts["errors"] += 1
                 continue
             try:
