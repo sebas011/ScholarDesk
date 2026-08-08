@@ -36,7 +36,9 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
     from datetime import date as _date
 
     available_years = stats_service.years_with_data(db)
-    selected_year = year  # any valid year is honored, even one with no data yet - it should show 0, not silently fall back to all-time totals
+    # Any valid year is honored, even one with no data yet - it should
+    # show 0, not silently fall back to all-time totals.
+    selected_year = year
 
     if selected_year:
         total = stats_service.total_scholars_active_in_year(db, selected_year) # type: ignore
@@ -184,8 +186,14 @@ def create_scholar(
             "assignments": dept_service.list_for_scholar(db, scholar.id),
             "grants": [],
             "error": None,
-            "notice": f"Scholar added (ID {scholar.id})."
-            + (f" Note: a scholar named '{name}' already existed (ID {existing.id})." if existing else ""),
+            "notice": (
+                f"Scholar added (ID {scholar.id})."
+                + (
+                    f" Note: a scholar named '{name}' already existed (ID {existing.id})."
+                    if existing
+                    else ""
+                )
+            ),
         },
     )
 
