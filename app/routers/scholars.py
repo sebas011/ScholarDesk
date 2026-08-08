@@ -26,12 +26,12 @@ def _parse_year(year: str | None) -> int | None:
         return int(year)
     except ValueError:
         return None
-    
+
 router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
-    year = _parse_year(year)
+    year = _parse_year(year) # type: ignore
     from app.services import stats as stats_service
     from datetime import date as _date
 
@@ -39,8 +39,8 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
     selected_year = year  # any valid year is honored, even one with no data yet - it should show 0, not silently fall back to all-time totals
 
     if selected_year:
-        total = stats_service.total_scholars_active_in_year(db, selected_year)
-        dept_dist = stats_service.department_distribution(db, year=selected_year)
+        total = stats_service.total_scholars_active_in_year(db, selected_year) # type: ignore
+        dept_dist = stats_service.department_distribution(db, year=selected_year) # type: ignore
     else:
         total = stats_service.total_scholars(db)
         dept_dist = stats_service.department_distribution(db)
@@ -60,11 +60,12 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
 
 @router.get("/scholars", response_class=HTMLResponse)
 def scholars_page(
-    request: Request, q: str | None = None, year: int | None = None, db: Session = Depends(get_db)
+    request: Request, q: str | None = None, year: str | None = None, db: Session = Depends(get_db)
 ):
+    year = _parse_year(year) # type: ignore
     from app.services import stats as stats_service
 
-    scholars, total = scholar_service.list_scholars(db, search=q, year=year, limit=100, offset=0)
+    scholars, total = scholar_service.list_scholars(db, search=q, year=year, limit=100, offset=0) # type: ignore
     return templates.TemplateResponse(
         request,
         "scholars.html",
@@ -84,15 +85,16 @@ def scholars_page(
 def scholars_list_partial(
     request: Request,
     q: str | None = None,
-    year: int | None = None,
+    year: str | None = None,
     offset: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
     """htmx endpoint: re-renders the <ul> (or appends to it, for Load More)
     as the user types in search, changes the year filter, or paginates."""
+    year = _parse_year(year)  # pyright: ignore[reportAssignmentType]
     scholars, total = scholar_service.list_scholars(
-        db, search=q, year=year, limit=limit, offset=offset
+        db, search=q, year=year, limit=limit, offset=offset  # pyright: ignore[reportArgumentType]
     )
     return templates.TemplateResponse(
         request,
