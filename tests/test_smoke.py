@@ -63,7 +63,7 @@ def test_empty_year_param_does_not_422(client):
     for url in ("/", "/scholars", "/scholars/list"):
         resp = client.get(url, params={"year": ""})
         assert resp.status_code == 200, f"{url}?year= returned {resp.status_code}, expected 200"
-        
+
 
 def test_create_scholar_with_assignment(client):
     resp = client.post(
