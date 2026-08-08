@@ -20,7 +20,9 @@
             + New Scholar
         </button>
         <div style="font-size:12px; color:#888; margin-bottom:6px;">{{ total }} scholar(s)</div>
-        <ul class="scholar-list" id="scholar-list">
+        <ul class="scholar-list" id="scholar-list"
+            hx-trigger="scholar-changed from:body" hx-get="/scholars/list"
+            hx-include="[name='q'], #year-filter" hx-vals='{"offset": 0}'>
             {% include "partials/scholar_list.html" %}
         </ul>
     </div>
