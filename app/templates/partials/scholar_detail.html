@@ -107,8 +107,10 @@
         <div><label>Program Applied *</label><input name="program_applied" required></div>
         <div><label>Type of Grant</label><input name="type_of_grant"></div>
         <div><label>Delivering HEI</label><input name="delivering_hei"></div>
-        <div><label>Started</label><input name="date_started" type="date"></div>
-        <div><label>Ended</label><input name="date_ended" type="date"></div>
+        <div><label>Started (rough estimate OK)</label><input name="date_started" placeholder="e.g. June 2024, AY 2023-2024"></div>
+        <div><label>Ended (rough estimate OK)</label><input name="date_ended" placeholder="e.g. May 2027, ongoing"></div>
+        <div><label>Start Year *</label><input name="start_year" type="number" min="1900" max="2100" required></div>
+        <div><label>End Year</label><input name="end_year" type="number" min="1900" max="2100"></div>
         <div>
             <label>Status</label>
             <select name="status">

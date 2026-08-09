@@ -83,19 +83,35 @@ def test_blank_name_rejected_with_html_error_not_json(client):
 
 
 def test_multi_year_grant_active_across_its_full_span(client):
-    from datetime import date
     from app.services import grants as grant_service
     from app.models import Grant
 
     grant = Grant(
         scholar_id=1,
         program_applied="CHED Merit",
-        date_started=date(2024, 6, 1),
-        date_ended=date(2027, 5, 31),
+        date_started="June 2024",
+        date_ended="May 2027",
+        start_year=2024,
+        end_year=2027,
     )
     assert grant_service.active_in_year(grant, 2024) is True
     assert grant_service.active_in_year(grant, 2026) is True  # the case that broke per-year sheets
     assert grant_service.active_in_year(grant, 2028) is False
+
+
+def test_grant_with_no_start_year_excluded_from_year_filter(client):
+    """A grant with only free-text dates and no start_year (e.g. entered
+    before this field existed, or truly unknown) shouldn't crash the
+    year filter - it just can't be placed in any year."""
+    from app.services import grants as grant_service
+    from app.models import Grant
+
+    grant = Grant(
+        scholar_id=1,
+        program_applied="Legacy Grant",
+        date_started="sometime in the early 2000s",
+    )
+    assert grant_service.active_in_year(grant, 2024) is False
 
 
 def test_delete_scholar_cascades_to_assignments_and_grants(client):
