@@ -17,6 +17,23 @@ def total_scholars(db: Session) -> int:
     return db.query(func.count(Scholar.id)).scalar() or 0
 
 
+def total_grants(db: Session, year: int | None = None) -> int:
+    """Total grant records, optionally restricted to those active in a
+    given year (same active_in_year rule used everywhere else)."""
+    if year is None:
+        return db.query(func.count(Grant.id)).scalar() or 0
+    return sum(1 for g in db.query(Grant).all() if grant_active_in_year(g, year))
+
+
+def active_grants_count(db: Session, year: int | None = None) -> int:
+    """Grants with status == 'Active', optionally also restricted to a
+    given year - i.e. 'how many grants are currently in progress'."""
+    query = db.query(Grant).filter(Grant.status == "Active")
+    if year is None:
+        return query.count()
+    return sum(1 for g in query.all() if grant_active_in_year(g, year))
+
+
 def total_scholars_active_in_year(db: Session, year: int) -> int:
     """A scholar counts as 'active' in a year if they have at least one
     assignment or grant overlapping that year - reuses the exact same

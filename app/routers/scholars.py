@@ -42,11 +42,14 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
     selected_year = year
 
     if selected_year:
-        total = stats_service.total_scholars_active_in_year(db, selected_year) # type: ignore
-        dept_dist = stats_service.department_distribution(db, year=selected_year) # type: ignore
+        total = stats_service.total_scholars_active_in_year(db, selected_year)
+        dept_dist = stats_service.department_distribution(db, year=selected_year)
     else:
         total = stats_service.total_scholars(db)
         dept_dist = stats_service.department_distribution(db)
+
+    total_grants = stats_service.total_grants(db, year=selected_year)
+    active_grants = stats_service.active_grants_count(db, year=selected_year)
 
     return templates.TemplateResponse(
         request,
@@ -57,6 +60,8 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
             "available_years": available_years,
             "selected_year": selected_year,
             "current_year": _date.today().year,
+            "total_grants": total_grants,
+            "active_grants": active_grants,
         },
     )
 

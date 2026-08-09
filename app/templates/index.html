@@ -20,6 +20,14 @@
         <div class="num">{{ total_scholars }}</div>
         {% if selected_year %}Scholars active in {{ selected_year }}{% else %}Total Scholars{% endif %}
     </div>
+    <div class="stat-box">
+        <div class="num">{{ total_grants }}</div>
+        {% if selected_year %}Grants in {{ selected_year }}{% else %}Total Grants{% endif %}
+    </div>
+    <div class="stat-box">
+        <div class="num">{{ active_grants }}</div>
+        Active Grants{% if selected_year %} ({{ selected_year }}){% endif %}
+    </div>
 </div>
 <div class="card" style="margin-top:16px;">
     <h3>Scholars by Department {% if selected_year %}({{ selected_year }}){% endif %}</h3>
