@@ -35,16 +35,20 @@ def total_scholars_active_in_year(db: Session, year: int) -> int:
 def years_with_data(db: Session) -> list[int]:
     """Every year touched by any assignment or grant's start/end range,
     used to populate the year-filter dropdown so it only ever shows
-    years that actually have something in them."""
+    years that actually have something in them.
+
+    Grants use start_year/end_year (plain integers) rather than
+    date_started/date_ended, which are free text now - see
+    app/models.py for why the two are kept separate."""
     years: set[int] = set()
     for a in db.query(DepartmentAssignment).all():
         if a.date_started:
             end_year = a.date_ended.year if a.date_ended else a.date_started.year
             years.update(range(a.date_started.year, end_year + 1))
     for g in db.query(Grant).all():
-        if g.date_started:
-            end_year = g.date_ended.year if g.date_ended else g.date_started.year
-            years.update(range(g.date_started.year, end_year + 1))
+        if g.start_year:
+            end_year = g.end_year if g.end_year else g.start_year
+            years.update(range(g.start_year, end_year + 1))
     return sorted(years, reverse=True)
 
 

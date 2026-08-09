@@ -6,7 +6,6 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.models import Grant, Scholar
-from app.utils.dates import range_active_in_year
 
 VALID_STATUSES = ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Withdrawn"]
 
@@ -16,12 +15,20 @@ def list_for_scholar(db: Session, scholar_id: int) -> list[Grant]:
 
 
 def active_in_year(grant: Grant, year: int) -> bool:
-    """Same rule as departments.active_in_year - one grant row can span
-    multiple years (e.g. a 3-year graduate award), so it must show up
-    in every year it overlaps, not just the year it started. Delegates
-    to the shared range rule in app.utils.dates so the two record
-    types can't drift apart."""
-    return range_active_in_year(grant.date_started, grant.date_ended, year)
+    """True if this grant counts as active in the given year, using
+    start_year/end_year (plain integers) rather than date_started/
+    date_ended (free text now, so no longer safe to read a date out
+    of - see app/models.py for why the two are separate).
+
+    No start_year recorded -> can't place it in any year -> False.
+    No end_year -> treated as still ongoing."""
+    if grant.start_year is None:
+        return False
+    if year < grant.start_year:
+        return False
+    if grant.end_year is not None and year > grant.end_year:
+        return False
+    return True
 
 
 def create_grant(
