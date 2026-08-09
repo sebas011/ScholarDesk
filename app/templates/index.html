@@ -1,21 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dashboard</h1>
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+    <h1 style="margin:0;">Dashboard</h1>
+    <form method="get" action="/" style="display:flex; align-items:center; gap:8px; margin:0;">
+        <label style="margin:0; text-transform:none; font-size:13px; font-weight:600; color:#555;">School year</label>
+        <select name="year" onchange="this.form.submit()" style="width:auto; margin:0; min-width:140px;">
+            <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
+            {% for y in available_years %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% if not available_years %}
+<div class="card" style="background:#fafbfc; color:#888; font-size:13px; box-shadow:none;">
+    No dated grants or assignments yet - add some to enable year filtering.
+</div>
+{% endif %}
 
-<form method="get" action="/" style="margin-bottom:16px;">
-    <label style="display:inline; margin-right:8px;">School year:</label>
-    <select name="year" onchange="this.form.submit()" style="width:auto; display:inline-block;">
-        <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
-        {% for y in available_years %}
-        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-        {% endfor %}
-    </select>
-    {% if not available_years %}
-    <span style="color:#888; font-size:13px;">(no dated grants/assignments yet - add some to enable year filtering)</span>
-    {% endif %}
-</form>
-
-<div>
+<div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
     <div class="stat-box">
         <div class="num">{{ total_scholars }}</div>
         {% if selected_year %}Scholars active in {{ selected_year }}{% else %}Total Scholars{% endif %}
@@ -29,14 +32,18 @@
         Active Grants{% if selected_year %} ({{ selected_year }}){% endif %}
     </div>
 </div>
-<div class="card" style="margin-top:16px;">
-    <h3>Scholars by Department {% if selected_year %}({{ selected_year }}){% endif %}</h3>
+
+<div class="card">
+    <h3>Scholars by Department {% if selected_year %}<span style="color:#888; font-weight:400;">({{ selected_year }})</span>{% endif %}</h3>
     <table>
-        <tr><th>Department</th><th>Scholars</th></tr>
+        <tr><th>Department</th><th style="text-align:right;">Scholars</th></tr>
         {% for dept, count in dept_distribution.items() %}
-        <tr><td>{{ dept }}</td><td>{{ count }}</td></tr>
+        <tr>
+            <td>{{ dept }}</td>
+            <td style="text-align:right; font-weight:600;">{{ count }}</td>
+        </tr>
         {% else %}
-        <tr><td colspan="2" style="color:#888;">No data for this year.</td></tr>
+        <tr><td colspan="2" style="color:#888; text-align:center; padding:20px;">No data for this year.</td></tr>
         {% endfor %}
     </table>
 </div>
