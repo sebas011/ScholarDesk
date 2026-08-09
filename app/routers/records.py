@@ -62,7 +62,9 @@ def add_assignment(
 
 
 @router.get("/assignments/{assignment_id}/edit", response_class=HTMLResponse)
-def edit_assignment_form(request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)):
+def edit_assignment_form(
+    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+):
     assignment = dept_service.get_assignment(db, assignment_id)
     return templates.TemplateResponse(
         request,
@@ -85,7 +87,13 @@ def update_assignment_route(
 ):
     try:
         dept_service.update_assignment(
-            db, assignment_id, department, rank, tenure, parse_date(date_started), parse_date(date_ended)
+            db,
+            assignment_id,
+            department,
+            rank,
+            tenure,
+            parse_date(date_started),
+            parse_date(date_ended),
         )
         db.commit()
     except ValueError as e:
@@ -95,7 +103,9 @@ def update_assignment_route(
 
 
 @router.delete("/assignments/{assignment_id}", response_class=HTMLResponse)
-def delete_assignment(request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)):
+def delete_assignment(
+    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+):
     try:
         dept_service.delete_assignment(db, assignment_id)
         db.commit()
