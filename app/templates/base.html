@@ -4,28 +4,107 @@
     <meta charset="UTF-8">
     <title>Grant Tracking System</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; background: #f5f6f8; color: #1e2327; }
-        header { background: #1e2327; color: white; padding: 14px 24px; }
-        header a { color: white; text-decoration: none; margin-right: 20px; font-weight: 600; }
-        main { max-width: 1200px; margin: 0 auto; padding: 24px; }
-        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-        input, select, textarea { width: 100%; padding: 7px 9px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-top: 8px; }
-        button { background: #1e2327; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
-        button.secondary { background: #ddd; color: #222; }
+<style>
+        :root {
+            --accent: #2d5f8a;
+            --accent-dark: #1e2327;
+            --border: #e3e6ea;
+            --text-muted: #6b7280;
+            --bg: #f7f8fa;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: #1e2327;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        header {
+            background: var(--accent-dark);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+        }
+        header a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            margin-right: 24px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: color 0.15s;
+        }
+        header a:hover { color: white; }
+        main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+        h1 { font-size: 22px; font-weight: 700; margin: 0 0 20px; }
+        h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+        h3 { font-size: 15px; font-weight: 700; margin: 0 0 12px; color: var(--accent-dark); }
+        h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin: 20px 0 10px; }
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+            margin-bottom: 16px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            border: 1px solid #d3d8de;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(45,95,138,0.12);
+        }
+        label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.02em; }
+        button {
+            background: var(--accent-dark);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.15s, transform 0.05s;
+        }
+        button:hover { background: #30363c; }
+        button:active { transform: translateY(1px); }
+        button.secondary { background: #eceef1; color: #333; }
+        button.secondary:hover { background: #e0e3e7; }
         button.danger { background: #c0392b; }
-        .error { color: #c0392b; background: #fdecea; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; }
-        .notice { color: #1a7f37; background: #e9f9ee; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; }
+        button.danger:hover { background: #a93226; }
+        .error { color: #c0392b; background: #fdecea; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #f5c6c0; }
+        .notice { color: #1a7f37; background: #e9f9ee; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #bfe8cc; }
         .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
         ul.scholar-list { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; }
-        ul.scholar-list li a { display: block; padding: 8px 10px; border-radius: 4px; text-decoration: none; color: #222; }
-        ul.scholar-list li a:hover { background: #eef0f2; }
+        ul.scholar-list li a { display: block; padding: 9px 10px; border-radius: 6px; text-decoration: none; color: #222; font-size: 14px; transition: background 0.1s; }
+        ul.scholar-list li a:hover { background: var(--bg); }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+        th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 2px solid var(--border); }
+        td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: var(--bg); }
         .row-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .stat-box { display: inline-block; background: white; border-radius: 8px; padding: 16px 24px; margin-right: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .stat-box .num { font-size: 28px; font-weight: 700; }
+        .stat-box {
+            display: inline-block;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 26px;
+            margin-right: 12px;
+            box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+        }
+        .stat-box .num { font-size: 30px; font-weight: 700; color: var(--accent-dark); line-height: 1.1; }
     </style>
 </head>
 <body>
