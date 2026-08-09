@@ -1,15 +1,16 @@
 {% if error %}<tr><td colspan="6"><div class="error">{{ error }}</div></td></tr>{% endif %}
 <tr id="assignment-row-{{ assignment.id }}">
-    <form hx-post="/assignments/{{ assignment.id }}?scholar_id={{ scholar_id }}" hx-target="#scholar-detail" hx-swap="outerHTML" style="display:contents;">
-        <td><input name="department" value="{{ assignment.department }}" required style="margin:0;"></td>
-        <td><input name="rank" value="{{ assignment.rank or '' }}" style="margin:0;"></td>
-        <td><input name="tenure" value="{{ assignment.tenure or '' }}" style="margin:0;"></td>
-        <td><input name="date_started" type="date" value="{{ assignment.date_started or '' }}" style="margin:0;"></td>
-        <td><input name="date_ended" type="date" value="{{ assignment.date_ended or '' }}" style="margin:0;"></td>
-        <td style="white-space:nowrap;">
-            <button type="submit" style="padding:3px 8px; font-size:12px;">Save</button>
-            <button type="button" class="secondary" style="padding:3px 8px; font-size:12px;"
-                    hx-get="/scholars/{{ scholar_id }}" hx-target="#scholar-detail">Cancel</button>
-        </td>
-    </form>
+    <td><input name="department" value="{{ assignment.department }}" required style="margin:0;"></td>
+    <td><input name="rank" value="{{ assignment.rank or '' }}" style="margin:0;"></td>
+    <td><input name="tenure" value="{{ assignment.tenure or '' }}" style="margin:0;"></td>
+    <td><input name="date_started" type="date" value="{{ assignment.date_started or '' }}" style="margin:0;"></td>
+    <td><input name="date_ended" type="date" value="{{ assignment.date_ended or '' }}" style="margin:0;"></td>
+    <td style="white-space:nowrap;">
+        <button type="button" style="padding:3px 8px; font-size:12px;"
+                hx-post="/assignments/{{ assignment.id }}?scholar_id={{ scholar_id }}"
+                hx-include="#assignment-row-{{ assignment.id }} input"
+                hx-target="#scholar-detail">Save</button>
+        <button type="button" class="secondary" style="padding:3px 8px; font-size:12px;"
+                hx-get="/scholars/{{ scholar_id }}" hx-target="#scholar-detail">Cancel</button>
+    </td>
 </tr>
