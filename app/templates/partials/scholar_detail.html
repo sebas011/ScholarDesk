@@ -82,11 +82,12 @@
 <hr>
 <h3>Grants</h3>
 <table>
-    <tr><th>Program</th><th>Type</th><th>HEI</th><th>Started</th><th>Ended</th><th>Status</th><th></th></tr>
+<tr><th>Program</th><th>Type</th><th>HEI</th><th>Started</th><th>Ended</th><th>Status</th><th>Extension</th><th></th></tr>
     {% for g in grants %}
     <tr>
         <td>{{ g.program_applied }}</td><td>{{ g.type_of_grant or "" }}</td><td>{{ g.delivering_hei or "" }}</td>
         <td>{{ g.date_started or "" }}</td><td>{{ g.date_ended or "" }}</td><td>{{ g.status }}</td>
+        <td>{{ g.extension or "" }}</td>
         <td>
             <button type="button" class="danger" style="padding:3px 8px; font-size:12px;"
                     hx-delete="/grants/{{ g.id }}?scholar_id={{ scholar.id }}" hx-target="#scholar-detail"
@@ -112,7 +113,7 @@
             </select>
         </div>
         <div style="grid-column: 1 / -1;"><label>Remarks</label><textarea name="remarks" rows="2"></textarea></div>
-        <div><label><input type="checkbox" name="extension" value="true" style="width:auto;"> Extension</label></div>
+        <div><label>Extension</label><input name="extension" placeholder="e.g. 2 years, pending"></div>
         <div><button type="submit">Add Grant</button></div>
     </div>
 </form>

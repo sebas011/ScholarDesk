@@ -83,7 +83,7 @@ def add_grant(
     delivering_hei: str = Form(""),
     date_started: str = Form(""),
     date_ended: str = Form(""),
-    extension: bool = Form(False),
+    extension: str = Form(""),
     status: str = Form("Active"),
     remarks: str = Form(""),
     db: Session = Depends(get_db),

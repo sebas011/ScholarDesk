@@ -58,7 +58,7 @@ class Grant(Base):
     delivering_hei: Mapped[str | None] = mapped_column(String(200), nullable=True)
     date_started: Mapped[date | None] = mapped_column(Date, nullable=True)
     date_ended: Mapped[date | None] = mapped_column(Date, nullable=True)
-    extension: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    extension: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 

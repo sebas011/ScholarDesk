@@ -51,7 +51,7 @@ def create_grant(
         delivering_hei=(delivering_hei or "").strip() or None,
         date_started=date_started,
         date_ended=date_ended,
-        extension=extension,
+        extension=(extension or "").strip() or None,
         status=status,
         remarks=(remarks or "").strip() or None,
     )
@@ -68,7 +68,7 @@ def update_grant(
     delivering_hei: str | None,
     date_started: date | None,
     date_ended: date | None,
-    extension: bool,
+    extension: str | None,
     status: str,
     remarks: str | None,
 ) -> Grant:
@@ -87,7 +87,7 @@ def update_grant(
     grant.delivering_hei = (delivering_hei or "").strip() or None
     grant.date_started = date_started
     grant.date_ended = date_ended
-    grant.extension = extension
+    grant.extension = (extension or "").strip() or None
     grant.status = status
     grant.remarks = (remarks or "").strip() or None
     return grant
