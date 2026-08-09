@@ -56,8 +56,15 @@ class Grant(Base):
     program_applied: Mapped[str] = mapped_column(String(300), nullable=False)
     type_of_grant: Mapped[str | None] = mapped_column(String(150), nullable=True)
     delivering_hei: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    date_started: Mapped[date | None] = mapped_column(Date, nullable=True)
-    date_ended: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Free text on purpose - grant dates are often incomplete or rough
+    # estimates ("circa 2023", "AY 2022-2023") rather than exact days.
+    date_started: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    date_ended: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Separate, real integer years - the one thing the year filter/dashboard
+    # actually need. Kept independent of the free-text fields above so
+    # "rough estimate" text never has to be parsed to make filtering work.
+    start_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    end_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     extension: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
