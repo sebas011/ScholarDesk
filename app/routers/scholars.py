@@ -13,6 +13,7 @@ from app.core.exceptions import (
     InvalidScholarError,
     ScholarNotFoundError,
 )
+from app.utils.dates import parse_date
 
 def _parse_year(year: str | None) -> int | None:
     """Query params arrive as strings. The 'All Years' option in the
@@ -153,6 +154,8 @@ def create_scholar(
     department: str = Form(""),
     rank: str = Form(""),
     tenure: str = Form(""),
+    date_started: str = Form(""),
+    date_ended: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
@@ -166,7 +169,13 @@ def create_scholar(
         )
         if department.strip():
             dept_service.create_assignment(
-                db, scholar.id, department, rank, tenure, date.today(), None
+                db,
+                scholar.id,
+                department,
+                rank,
+                tenure,
+                parse_date(date_started) or date.today(),
+                parse_date(date_ended),
             )
         db.commit()
         db.refresh(scholar)
