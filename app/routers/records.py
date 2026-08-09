@@ -153,6 +153,57 @@ def add_grant(
     return _render_scholar_detail(request, db, scholar_id, notice="Grant added.")
 
 
+@router.get("/grants/{grant_id}/edit", response_class=HTMLResponse)
+def edit_grant_form(
+    request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)
+):
+    grant = grant_service.get_grant(db, grant_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/grant_edit_row.html",
+        {"grant": grant, "scholar_id": scholar_id, "error": None},
+    )
+
+
+@router.post("/grants/{grant_id}", response_class=HTMLResponse)
+def update_grant_route(
+    request: Request,
+    grant_id: int,
+    scholar_id: int,
+    program_applied: str = Form(...),
+    type_of_grant: str = Form(""),
+    delivering_hei: str = Form(""),
+    date_started: str = Form(""),
+    date_ended: str = Form(""),
+    start_year: str = Form(""),
+    end_year: str = Form(""),
+    extension: str = Form(""),
+    status: str = Form("Active"),
+    remarks: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    try:
+        grant_service.update_grant(
+            db,
+            grant_id,
+            program_applied,
+            type_of_grant,
+            delivering_hei,
+            date_started,
+            date_ended,
+            int(start_year) if start_year.strip().isdigit() else None,
+            int(end_year) if end_year.strip().isdigit() else None,
+            extension,
+            status,
+            remarks,
+        )
+        db.commit()
+    except ValueError as e:
+        db.rollback()
+        return _render_scholar_detail(request, db, scholar_id, error=str(e))
+    return _render_scholar_detail(request, db, scholar_id, notice="Grant updated.")
+
+
 @router.delete("/grants/{grant_id}", response_class=HTMLResponse)
 def delete_grant(request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)):
     try:

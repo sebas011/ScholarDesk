@@ -1,7 +1,6 @@
 """
 Grant business logic - mirrors modGrants.bas.
 """
-from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -12,6 +11,10 @@ VALID_STATUSES = ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Wit
 
 def list_for_scholar(db: Session, scholar_id: int) -> list[Grant]:
     return db.query(Grant).filter(Grant.scholar_id == scholar_id).order_by(Grant.id).all()
+
+
+def get_grant(db: Session, grant_id: int) -> Grant | None:
+    return db.get(Grant, grant_id)
 
 
 def active_in_year(grant: Grant, year: int) -> bool:
@@ -77,8 +80,10 @@ def update_grant(
     program_applied: str,
     type_of_grant: str | None,
     delivering_hei: str | None,
-    date_started: date | None,
-    date_ended: date | None,
+    date_started: str | None,
+    date_ended: str | None,
+    start_year: int | None,
+    end_year: int | None,
     extension: str | None,
     status: str,
     remarks: str | None,
@@ -96,8 +101,10 @@ def update_grant(
     grant.program_applied = program_applied
     grant.type_of_grant = (type_of_grant or "").strip() or None
     grant.delivering_hei = (delivering_hei or "").strip() or None
-    grant.date_started = date_started
-    grant.date_ended = date_ended
+    grant.date_started = (date_started or "").strip() or None
+    grant.date_ended = (date_ended or "").strip() or None
+    grant.start_year = start_year
+    grant.end_year = end_year
     grant.extension = (extension or "").strip() or None
     grant.status = status
     grant.remarks = (remarks or "").strip() or None

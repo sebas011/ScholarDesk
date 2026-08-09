@@ -1,0 +1,28 @@
+{% if error %}<tr><td colspan="8"><div class="error">{{ error }}</div></td></tr>{% endif %}
+<tr id="grant-row-{{ grant.id }}">
+    <td><input name="program_applied" value="{{ grant.program_applied }}" required style="margin:0;"></td>
+    <td><input name="type_of_grant" value="{{ grant.type_of_grant or '' }}" style="margin:0;"></td>
+    <td><input name="delivering_hei" value="{{ grant.delivering_hei or '' }}" style="margin:0;"></td>
+    <td><input name="date_started" value="{{ grant.date_started or '' }}" placeholder="rough estimate OK" style="margin:0;"></td>
+    <td><input name="date_ended" value="{{ grant.date_ended or '' }}" placeholder="rough estimate OK" style="margin:0;"></td>
+    <td>
+        <select name="status" style="margin:0;">
+            {% for s in ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Withdrawn"] %}
+            <option {% if s == grant.status %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td><input name="extension" value="{{ grant.extension or '' }}" style="margin:0;"></td>
+    <td style="white-space:nowrap;">
+        <input name="start_year" type="number" min="1900" max="2100" value="{{ grant.start_year or '' }}"
+               placeholder="Start yr" style="margin:0; width:70px; display:inline-block;" required>
+        <input name="end_year" type="number" min="1900" max="2100" value="{{ grant.end_year or '' }}"
+               placeholder="End yr" style="margin:0; width:70px; display:inline-block;">
+        <button type="button" style="padding:3px 8px; font-size:12px;"
+                hx-post="/grants/{{ grant.id }}?scholar_id={{ scholar_id }}"
+                hx-include="#grant-row-{{ grant.id }} input, #grant-row-{{ grant.id }} select"
+                hx-target="#scholar-detail">Save</button>
+        <button type="button" class="secondary" style="padding:3px 8px; font-size:12px;"
+                hx-get="/scholars/{{ scholar_id }}" hx-target="#scholar-detail">Cancel</button>
+    </td>
+</tr>
