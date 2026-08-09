@@ -14,4 +14,4 @@ logs/
 *.log
 .venv/
 .vs/
-*.db.backup
+*.db.backup*
