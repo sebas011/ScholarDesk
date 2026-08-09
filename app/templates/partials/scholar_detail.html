@@ -58,11 +58,14 @@
 <h3>Department Assignments</h3>
 <table>
     <tr><th>Department</th><th>Rank</th><th>Tenure</th><th>Started</th><th>Ended</th><th></th></tr>
-    {% for a in assignments %}
-    <tr>
+{% for a in assignments %}
+    <tr id="assignment-row-{{ a.id }}">
         <td>{{ a.department }}</td><td>{{ a.rank or "" }}</td><td>{{ a.tenure or "" }}</td>
         <td>{{ a.date_started or "" }}</td><td>{{ a.date_ended or "" }}</td>
-        <td>
+        <td style="white-space:nowrap;">
+            <button type="button" class="secondary" style="padding:3px 8px; font-size:12px;"
+                    hx-get="/assignments/{{ a.id }}/edit?scholar_id={{ scholar.id }}"
+                    hx-target="#assignment-row-{{ a.id }}" hx-swap="outerHTML">Edit</button>
             <button type="button" class="danger" style="padding:3px 8px; font-size:12px;"
                     hx-delete="/assignments/{{ a.id }}?scholar_id={{ scholar.id }}" hx-target="#scholar-detail"
                     hx-confirm="Delete this assignment?">✕</button>

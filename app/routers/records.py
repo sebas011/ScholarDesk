@@ -61,10 +61,41 @@ def add_assignment(
     return _render_scholar_detail(request, db, scholar_id, notice="Assignment added.")
 
 
-@router.delete("/assignments/{assignment_id}", response_class=HTMLResponse)
-def delete_assignment(
-    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+@router.get("/assignments/{assignment_id}/edit", response_class=HTMLResponse)
+def edit_assignment_form(request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)):
+    assignment = dept_service.get_assignment(db, assignment_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/assignment_edit_row.html",
+        {"assignment": assignment, "scholar_id": scholar_id, "error": None},
+    )
+
+
+@router.post("/assignments/{assignment_id}", response_class=HTMLResponse)
+def update_assignment_route(
+    request: Request,
+    assignment_id: int,
+    scholar_id: int,
+    department: str = Form(...),
+    rank: str = Form(""),
+    tenure: str = Form(""),
+    date_started: str = Form(""),
+    date_ended: str = Form(""),
+    db: Session = Depends(get_db),
 ):
+    try:
+        dept_service.update_assignment(
+            db, assignment_id, department, rank, tenure, parse_date(date_started), parse_date(date_ended)
+        )
+        db.commit()
+    except ValueError as e:
+        db.rollback()
+        return _render_scholar_detail(request, db, scholar_id, error=str(e))
+    return _render_scholar_detail(request, db, scholar_id, notice="Assignment updated.")
+
+
+@router.delete("/assignments/{assignment_id}", response_class=HTMLResponse)
+def delete_assignment(request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)):
     try:
         dept_service.delete_assignment(db, assignment_id)
         db.commit()

@@ -22,6 +22,10 @@ def list_for_scholar(db: Session, scholar_id: int) -> list[DepartmentAssignment]
     )
 
 
+def get_assignment(db: Session, assignment_id: int) -> DepartmentAssignment | None:
+    return db.get(DepartmentAssignment, assignment_id)
+
+
 def get_primary_assignment(db: Session, scholar_id: int) -> DepartmentAssignment | None:
     """The one and only definition of 'primary': earliest assignment by id."""
     return (
