@@ -9,6 +9,9 @@ a message meant to be shown directly to the user - the same contract
 the VBA (ok As Boolean, outMsg As String) pattern had, just using
 exceptions instead of out-parameters because that's idiomatic here.
 """
+from datetime import date
+
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import Scholar
@@ -32,28 +35,39 @@ def list_scholars(
     so the UI can show 'X of Y' and a Load More button.
 
     `year`, when set, restricts to scholars with at least one assignment
-    or grant overlapping that year - reuses the same active_in_year()
-    rule as the dashboard, so the list and the stats never disagree."""
+    or grant overlapping that year. Filtered entirely in SQL via two
+    subqueries rather than loading every assignment/grant row into
+    Python - the range check (start <= year <= end, or end is None for
+    "still ongoing") matches the same rule active_in_year() encodes
+    elsewhere, just expressed as a query instead of a Python loop."""
     query = db.query(Scholar)
     if search:
         query = query.filter(Scholar.name.ilike(f"%{search}%"))
 
     if year is not None:
         from app.models import DepartmentAssignment, Grant
-        from app.services.departments import active_in_year as assignment_active_in_year
-        from app.services.grants import active_in_year as grant_active_in_year
 
-        matching_ids: set[int] = set()
-        for a in db.query(DepartmentAssignment).all():
-            if assignment_active_in_year(a, year):
-                matching_ids.add(a.scholar_id)
-        for g in db.query(Grant).all():
-            if grant_active_in_year(g, year):
-                matching_ids.add(g.scholar_id)
-        query = (
-            query.filter(Scholar.id.in_(matching_ids))
-            if matching_ids
-            else query.filter(Scholar.id == None)  # noqa: E711 - SQLAlchemy needs `== None` to build IS NULL; `is None` would do a Python identity check, not build SQL, and silently return no filter at all.
+        year_start = date(year, 1, 1)
+        year_end = date(year, 12, 31)
+
+        dept_scholar_ids = db.query(DepartmentAssignment.scholar_id).filter(
+            DepartmentAssignment.date_started.isnot(None),
+            DepartmentAssignment.date_started <= year_end,
+            or_(
+                DepartmentAssignment.date_ended.is_(None),
+                DepartmentAssignment.date_ended >= year_start,
+            ),
+        )
+        grant_scholar_ids = db.query(Grant.scholar_id).filter(
+            Grant.start_year.isnot(None),
+            Grant.start_year <= year,
+            or_(Grant.end_year.is_(None), Grant.end_year >= year),
+        )
+        query = query.filter(
+            or_(
+                Scholar.id.in_(dept_scholar_ids),
+                Scholar.id.in_(grant_scholar_ids),
+            )
         )
 
     total = query.count()
