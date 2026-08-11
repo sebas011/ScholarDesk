@@ -8,7 +8,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Scholar, DepartmentAssignment, Grant
-from app.services.departments import active_in_year as assignment_active_in_year
 
 KNOWN_DEPARTMENTS = {"CAS", "CBMA", "COED", "CIT", "COE", "CCS", "CCJ"}
 OTHER_LABEL = "Admin Staff"
@@ -112,7 +111,10 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
     With `year` set, only counts assignments active in that year (and
     within that, still the earliest-in-year one per scholar), instead of
     each scholar's all-time first assignment - so switching the year
-    filter reflects who was actually where that year."""
+    filter reflects who was actually where that year. Both branches run
+    entirely in SQL: the year branch computes MIN(id) per scholar over
+    only the assignments already filtered to that year, via a subquery,
+    rather than loading every assignment into Python to pick manually."""
     if year is None:
         primary_ids = select(func.min(DepartmentAssignment.id)).group_by(
             DepartmentAssignment.scholar_id
@@ -121,11 +123,18 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
             db.query(DepartmentAssignment).filter(DepartmentAssignment.id.in_(primary_ids)).all()
         )
     else:
-        by_scholar: dict[int, DepartmentAssignment] = {}
-        for a in db.query(DepartmentAssignment).order_by(DepartmentAssignment.id).all():
-            if assignment_active_in_year(a, year) and a.scholar_id not in by_scholar:
-                by_scholar[a.scholar_id] = a
-        relevant_assignments = list(by_scholar.values())
+        year_filtered = db.query(DepartmentAssignment).filter(
+            *_assignments_active_in_year_filter(year)
+        )
+        primary_ids_in_year = (
+            year_filtered.with_entities(func.min(DepartmentAssignment.id))
+            .group_by(DepartmentAssignment.scholar_id)
+        )
+        relevant_assignments = (
+            db.query(DepartmentAssignment)
+            .filter(DepartmentAssignment.id.in_(primary_ids_in_year))
+            .all()
+        )
 
     counts: dict[str, int] = {}
     assigned_scholar_ids = set()
