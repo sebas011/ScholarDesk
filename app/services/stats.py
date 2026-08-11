@@ -2,12 +2,13 @@
 Dashboard stats - mirrors modHomeStats.bas. One query instead of a
 per-scholar Excel-range walk; the database does the counting.
 """
-from sqlalchemy import func, select
+from datetime import date
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Scholar, DepartmentAssignment, Grant
 from app.services.departments import active_in_year as assignment_active_in_year
-from app.services.grants import active_in_year as grant_active_in_year
 
 KNOWN_DEPARTMENTS = {"CAS", "CBMA", "COED", "CIT", "COE", "CCS", "CCJ"}
 OTHER_LABEL = "Admin Staff"
@@ -17,37 +18,71 @@ def total_scholars(db: Session) -> int:
     return db.query(func.count(Scholar.id)).scalar() or 0
 
 
+def _grants_active_in_year_filter(year: int):
+    """SQL WHERE-clause equivalent of grants.active_in_year(), so
+    "active in year" can be filtered by the database instead of
+    loading every grant row into Python to check in a loop."""
+    return (
+        Grant.start_year.isnot(None),
+        Grant.start_year <= year,
+        or_(Grant.end_year.is_(None), Grant.end_year >= year),
+    )
+
+
+def _assignments_active_in_year_filter(year: int):
+    """SQL WHERE-clause equivalent of departments.active_in_year()."""
+    year_start = date(year, 1, 1)
+    year_end = date(year, 12, 31)
+    return (
+        DepartmentAssignment.date_started.isnot(None),
+        DepartmentAssignment.date_started <= year_end,
+        or_(
+            DepartmentAssignment.date_ended.is_(None),
+            DepartmentAssignment.date_ended >= year_start,
+        ),
+    )
+
+
 def total_grants(db: Session, year: int | None = None) -> int:
     """Total grant records, optionally restricted to those active in a
-    given year (same active_in_year rule used everywhere else)."""
-    if year is None:
-        return db.query(func.count(Grant.id)).scalar() or 0
-    return sum(1 for g in db.query(Grant).all() if grant_active_in_year(g, year))
+    given year (same active_in_year rule used everywhere else, applied
+    as a SQL filter instead of a Python loop over every grant)."""
+    query = db.query(func.count(Grant.id))
+    if year is not None:
+        query = query.filter(*_grants_active_in_year_filter(year))
+    return query.scalar() or 0
 
 
 def active_grants_count(db: Session, year: int | None = None) -> int:
     """Grants with status == 'Active', optionally also restricted to a
     given year - i.e. 'how many grants are currently in progress'."""
     query = db.query(Grant).filter(Grant.status == "Active")
-    if year is None:
-        return query.count()
-    return sum(1 for g in query.all() if grant_active_in_year(g, year))
+    if year is not None:
+        query = query.filter(*_grants_active_in_year_filter(year))
+    return query.count()
 
 
 def total_scholars_active_in_year(db: Session, year: int) -> int:
     """A scholar counts as 'active' in a year if they have at least one
-    assignment or grant overlapping that year - reuses the exact same
-    active_in_year() rule the service layer already uses elsewhere, so
-    there's still only one definition of what a year filter means."""
-    scholar_ids: set[int] = set()
-    for a in db.query(DepartmentAssignment).all():
-        if assignment_active_in_year(a, year):
-            scholar_ids.add(a.scholar_id)
-    for g in db.query(Grant).all():
-        if grant_active_in_year(g, year):
-            scholar_ids.add(g.scholar_id)
-    return len(scholar_ids)
-
+    assignment or grant overlapping that year. Filtered entirely in SQL
+    via subqueries rather than loading every assignment/grant row into
+    Python - same rule active_in_year() encodes elsewhere, expressed as
+    a query instead of a loop."""
+    dept_scholar_ids = db.query(DepartmentAssignment.scholar_id).filter(
+        *_assignments_active_in_year_filter(year)
+    )
+    grant_scholar_ids = db.query(Grant.scholar_id).filter(*_grants_active_in_year_filter(year))
+    return (
+        db.query(func.count(func.distinct(Scholar.id)))
+        .filter(
+            or_(
+                Scholar.id.in_(dept_scholar_ids),
+                Scholar.id.in_(grant_scholar_ids),
+            )
+        )
+        .scalar()
+        or 0
+    )
 
 def years_with_data(db: Session) -> list[int]:
     """Every year touched by any assignment or grant's start/end range,
