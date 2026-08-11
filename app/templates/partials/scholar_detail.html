@@ -10,7 +10,9 @@
     <input name="age" type="number">
     <label>Previous Degree</label>
     <input name="previous_degree">
-    <label><input type="checkbox" name="missing_requirements" value="true" style="width:auto;"> Missing Requirements</label>
+    <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin-top:14px;">
+        <input type="checkbox" name="missing_requirements" value="true" style="width:auto; margin:0;"> Missing Requirements
+    </label>
 
     <h4>Initial Department Assignment (optional)</h4>
     <label>Department</label>
@@ -39,7 +41,7 @@
     <input name="age" type="number" value="{{ scholar.age or '' }}">
     <label>Previous Degree</label>
     <input name="previous_degree" value="{{ scholar.previous_degree or '' }}">
-    <label>
+    <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin-top:14px;">
         <input type="checkbox" name="missing_requirements" value="true" style="width:auto;"
                {% if scholar.missing_requirements %}checked{% endif %}>
         Missing Requirements
@@ -54,8 +56,8 @@
     </div>
 </form>
 
-<hr>
-<h3>Department Assignments</h3>
+<div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border, #e3e6ea);">
+<h3 style="margin-bottom:14px;">Department Assignments</h3>
 <table>
     <tr><th>Department</th><th>Rank</th><th>Tenure</th><th>Started</th><th>Ended</th><th></th></tr>
 {% for a in assignments %}
@@ -75,7 +77,8 @@
     <tr><td colspan="6" style="color:#888;">No assignments yet.</td></tr>
     {% endfor %}
 </table>
-<form hx-post="/scholars/{{ scholar.id }}/assignments" hx-target="#scholar-detail" style="margin-top:10px;">
+<form hx-post="/scholars/{{ scholar.id }}/assignments" hx-target="#scholar-detail"
+      style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border, #e3e6ea);">
     <div style="display:grid; grid-template-columns: repeat(5, 1fr) auto; gap:8px; align-items:end;">
         <div><label>Department *</label><input name="department" required></div>
         <div><label>Rank</label><input name="rank"></div>
@@ -85,9 +88,10 @@
         <div><button type="submit">Add</button></div>
     </div>
 </form>
+</div>
 
-<hr>
-<h3>Grants</h3>
+<div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border, #e3e6ea);">
+<h3 style="margin-bottom:14px;">Grants</h3>
 <table>
     <tr><th>Program</th><th>Type</th><th>HEI</th><th>Started</th><th>Ended</th><th>Status</th><th>Extension</th><th></th></tr>
     {% for g in grants %}
@@ -108,7 +112,8 @@
     <tr><td colspan="8" style="color:#888;">No grants yet.</td></tr>
     {% endfor %}
 </table>
-<form hx-post="/scholars/{{ scholar.id }}/grants" hx-target="#scholar-detail" style="margin-top:10px;">
+<form hx-post="/scholars/{{ scholar.id }}/grants" hx-target="#scholar-detail"
+      style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border, #e3e6ea);">
     <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
         <div><label>Program Applied *</label><input name="program_applied" required></div>
         <div><label>Type of Grant</label><input name="type_of_grant"></div>
@@ -124,10 +129,10 @@
                 <option>Pending</option><option>On Hold</option><option>Withdrawn</option>
             </select>
         </div>
-        <div style="grid-column: 1 / -1;"><label>Remarks</label><textarea name="remarks" rows="2"></textarea></div>
         <div><label>Extension</label><input name="extension" placeholder="e.g. 2 years, pending"></div>
-        <div><button type="submit">Add Grant</button></div>
+        <div style="grid-column: 1 / -1;"><label>Remarks</label><textarea name="remarks" rows="2"></textarea></div>
+        <div style="grid-column: 1 / -1;"><button type="submit">Add Grant</button></div>
     </div>
 </form>
-
+</div>
 {% endif %}

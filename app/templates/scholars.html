@@ -2,12 +2,16 @@
 {% block content %}
 <div class="layout">
     <div class="card">
+        <button style="width:100%; margin-bottom:14px;" hx-get="/scholars/new" hx-target="#scholar-detail">
+            + New Scholar
+        </button>
+
         <input type="search" name="q" placeholder="Search by name..." value="{{ q }}"
+               style="margin-bottom:8px;"
                hx-get="/scholars/list" hx-trigger="input changed delay:300ms" hx-target="#scholar-list"
                hx-include="#year-filter" hx-vals='{"offset": 0}'>
 
-        <label style="margin-top:0;">School year</label>
-        <select id="year-filter" name="year"
+        <select id="year-filter" name="year" style="margin-bottom:10px;"
                 hx-get="/scholars/list" hx-trigger="change" hx-target="#scholar-list"
                 hx-include="[name='q']" hx-vals='{"offset": 0}'>
             <option value="" {% if not year %}selected{% endif %}>All years</option>
@@ -16,10 +20,9 @@
             {% endfor %}
         </select>
 
-        <button style="width:100%; margin-bottom:10px;" hx-get="/scholars/new" hx-target="#scholar-detail">
-            + New Scholar
-        </button>
-        <div style="font-size:12px; color:#888; margin-bottom:6px;">{{ total }} scholar(s)</div>
+        <div style="font-size:12px; color:#888; padding-bottom:8px; margin-bottom:6px; border-bottom:1px solid var(--border, #e3e6ea);">
+            {{ total }} scholar(s)
+        </div>
         <ul class="scholar-list" id="scholar-list"
             hx-trigger="scholar-changed from:body" hx-get="/scholars/list"
             hx-include="[name='q'], #year-filter" hx-vals='{"offset": 0}'>
