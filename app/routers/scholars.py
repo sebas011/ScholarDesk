@@ -9,6 +9,7 @@ from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
 from app.services import grants as grant_service
+from app.models import Scholar, DepartmentAssignment, Grant
 from app.core.exceptions import (
     InvalidScholarError,
     ScholarNotFoundError,
@@ -67,8 +68,37 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard_page(request: Request):
-    return templates.TemplateResponse(request, "dashboard.html", {})
+def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    """Full data table: every scholar with every assignment and grant
+    they have, all on one page - unlike /scholars, this has no
+    pagination by design, since the point of this view is to see
+    everything at once (e.g. for exporting or a full manual review).
+
+    Loaded as three queries total (all scholars, all assignments, all
+    grants) and grouped in Python by scholar_id, rather than one query
+    per scholar - the same N+1 pattern the rest of the app avoids."""
+    all_scholars = db.query(Scholar).order_by(Scholar.name).all()
+    all_assignments = db.query(DepartmentAssignment).order_by(DepartmentAssignment.id).all()
+    all_grants = db.query(Grant).order_by(Grant.id).all()
+
+    assignments_by_scholar: dict[int, list] = {}
+    for a in all_assignments:
+        assignments_by_scholar.setdefault(a.scholar_id, []).append(a)
+
+    grants_by_scholar: dict[int, list] = {}
+    for g in all_grants:
+        grants_by_scholar.setdefault(g.scholar_id, []).append(g)
+
+    rows = [
+        {
+            "scholar": s,
+            "assignments": assignments_by_scholar.get(s.id, []),
+            "grants": grants_by_scholar.get(s.id, []),
+        }
+        for s in all_scholars
+    ]
+
+    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows})
 
 
 @router.get("/scholars", response_class=HTMLResponse)
