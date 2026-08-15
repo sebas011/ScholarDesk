@@ -21,6 +21,46 @@ from app.core.exceptions import (
     ScholarNotFoundError,
 )
 
+ROWS_SHOWN_BY_DEFAULT = 10
+
+
+def build_detail_context(
+    db: Session,
+    scholar: Scholar | None,
+    show_all_assignments: bool = False,
+    show_all_grants: bool = False,
+    error: str | None = None,
+    notice: str | None = None,
+) -> dict:
+    """The one place that builds the scholar_detail.html template
+    context. Every route that renders that template must go through
+    this instead of hand-building the dict - five near-identical
+    copies of this logic already existed across scholars.py and
+    records.py, and a missing key in one of them already shipped a
+    real crash (assignments_total undefined) once. One function means
+    one place to get it right."""
+    if scholar is None:
+        return {"scholar": None, "error": error, "notice": notice}
+
+    from app.services import departments as dept_service
+    from app.services import grants as grant_service
+
+    all_assignments = dept_service.list_for_scholar(db, scholar.id)
+    all_grants = grant_service.list_for_scholar(db, scholar.id)
+    return {
+        "scholar": scholar,
+        "assignments": all_assignments
+        if show_all_assignments
+        else all_assignments[:ROWS_SHOWN_BY_DEFAULT],
+        "assignments_total": len(all_assignments),
+        "show_all_assignments": show_all_assignments,
+        "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
+        "grants_total": len(all_grants),
+        "show_all_grants": show_all_grants,
+        "error": error,
+        "notice": notice,
+    }
+
 
 def list_scholars(
     db: Session,
