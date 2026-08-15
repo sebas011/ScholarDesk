@@ -31,18 +31,16 @@ def _parse_year(year: str | None) -> int | None:
 
 router = APIRouter()
 
-ROWS_SHOWN_BY_DEFAULT = 10
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
-    year = _parse_year(year) # type: ignore
     from app.services import stats as stats_service
     from datetime import date as _date
 
     available_years = stats_service.years_with_data(db)
     # Any valid year is honored, even one with no data yet - it should
     # show 0, not silently fall back to all-time totals.
-    selected_year = year
+    selected_year: int | None = _parse_year(year)
 
     if selected_year:
         total = stats_service.total_scholars_active_in_year(db, selected_year)
@@ -111,10 +109,12 @@ def scholars_page(
     scholar_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    year = _parse_year(year) # type: ignore
     from app.services import stats as stats_service
 
-    scholars, total = scholar_service.list_scholars(db, search=q, year=year, limit=100, offset=0) # type: ignore
+    parsed_year: int | None = _parse_year(year)
+    scholars, total = scholar_service.list_scholars(
+        db, search=q, year=parsed_year, limit=100, offset=0
+    )
 
     # When arriving with ?scholar_id=, pre-render that scholar's detail
     # panel instead of the default "New Scholar" form - used by links
@@ -124,20 +124,12 @@ def scholars_page(
     if scholar_id is not None:
         selected = scholar_service.get_scholar(db, scholar_id)
         if selected is None:
-            detail_context = {"scholar": None, "error": "Scholar not found."}
-        else:
-            all_assignments = dept_service.list_for_scholar(db, scholar_id)
-            all_grants = grant_service.list_for_scholar(db, scholar_id)
-            detail_context = {
-                "scholar": selected,
-                "assignments": all_assignments[:ROWS_SHOWN_BY_DEFAULT],
-                "assignments_total": len(all_assignments),
-                "show_all_assignments": False,
-                "grants": all_grants[:ROWS_SHOWN_BY_DEFAULT],
-                "grants_total": len(all_grants),
-                "show_all_grants": False,
-                "error": None,
-            }
+            detail_context = {"scholar": None, "error": None}
+    if scholar_id is not None:
+        selected = scholar_service.get_scholar(db, scholar_id)
+        detail_context = scholar_service.build_detail_context(
+            db, selected, error=None if selected else "Scholar not found."
+        )
 
     return templates.TemplateResponse(
         request,
@@ -146,7 +138,7 @@ def scholars_page(
             "scholars": scholars,
             "total": total,
             "q": q or "",
-            "year": year,
+            "year": parsed_year,
             "available_years": stats_service.years_with_data(db),
             "offset": 0,
             "limit": 100,
@@ -166,9 +158,9 @@ def scholars_list_partial(
 ):
     """htmx endpoint: re-renders the <ul> (or appends to it, for Load More)
     as the user types in search, changes the year filter, or paginates."""
-    year = _parse_year(year)  # pyright: ignore[reportAssignmentType]
+    parsed_year: int | None = _parse_year(year)
     scholars, total = scholar_service.list_scholars(
-        db, search=q, year=year, limit=limit, offset=offset  # pyright: ignore[reportArgumentType]
+        db, search=q, year=parsed_year, limit=limit, offset=offset
     )
     return templates.TemplateResponse(
         request,
@@ -177,7 +169,7 @@ def scholars_list_partial(
             "scholars": scholars,
             "total": total,
             "q": q or "",
-            "year": year,
+            "year": parsed_year,
             "offset": offset,
             "limit": limit,
             "next_offset": offset + limit,
@@ -204,29 +196,12 @@ def scholar_detail(
 ):
     scholar = scholar_service.get_scholar(db, scholar_id)
     if scholar is None:
-        return templates.TemplateResponse(
-            request,
-            "partials/scholar_detail.html",
-            {"scholar": None, "error": "Scholar not found."},
+        context = {"scholar": None, "error": "Scholar not found."}
+    else:
+        context = scholar_service.build_detail_context(
+            db, scholar, show_all_assignments, show_all_grants
         )
-    all_assignments = dept_service.list_for_scholar(db, scholar_id)
-    all_grants = grant_service.list_for_scholar(db, scholar_id)
-    return templates.TemplateResponse(
-        request,
-        "partials/scholar_detail.html",
-        {
-            "scholar": scholar,
-            "assignments": all_assignments
-            if show_all_assignments
-            else all_assignments[:ROWS_SHOWN_BY_DEFAULT],
-            "assignments_total": len(all_assignments),
-            "show_all_assignments": show_all_assignments,
-            "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
-            "grants_total": len(all_grants),
-            "show_all_grants": show_all_grants,
-            "error": None,
-        },
-    )
+    return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
 
 @router.post("/scholars", response_class=HTMLResponse)
 def create_scholar(
@@ -271,28 +246,22 @@ def create_scholar(
             {"scholar": None, "error": str(e)},
         )
 
-    new_assignments = dept_service.list_for_scholar(db, scholar.id)
+    context = scholar_service.build_detail_context(
+        db,
+        scholar,
+        notice=(
+            f"Scholar added (ID {scholar.id})."
+            + (
+                f" Note: a scholar named '{name}' already existed (ID {existing.id})."
+                if existing
+                else ""
+            )
+        ),
+    )
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
-        {
-            "scholar": scholar,
-            "assignments": new_assignments,
-            "assignments_total": len(new_assignments),
-            "show_all_assignments": False,
-            "grants": [],
-            "grants_total": 0,
-            "show_all_grants": False,
-            "error": None,
-            "notice": (
-                f"Scholar added (ID {scholar.id})."
-                + (
-                    f" Note: a scholar named '{name}' already existed (ID {existing.id})."
-                    if existing
-                    else ""
-                )
-            ),
-        },
+        context,
         headers={"HX-Trigger": "scholar-changed"},
     )
 
@@ -321,39 +290,14 @@ def update_scholar(
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
         scholar = scholar_service.get_scholar(db, scholar_id)
-        err_assignments = dept_service.list_for_scholar(db, scholar_id) if scholar else []
-        err_grants = grant_service.list_for_scholar(db, scholar_id) if scholar else []
-        return templates.TemplateResponse(
-            request,
-            "partials/scholar_detail.html",
-            {
-                "scholar": scholar,
-                "assignments": err_assignments,
-                "assignments_total": len(err_assignments),
-                "show_all_assignments": False,
-                "grants": err_grants,
-                "grants_total": len(err_grants),
-                "show_all_grants": False,
-                "error": str(e),
-            },
-        )
+        context = scholar_service.build_detail_context(db, scholar, error=str(e))
+        return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
 
-    updated_assignments = dept_service.list_for_scholar(db, scholar_id)
-    updated_grants = grant_service.list_for_scholar(db, scholar_id)
+    context = scholar_service.build_detail_context(db, scholar, notice="Scholar updated.")
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
-        {
-            "scholar": scholar,
-            "assignments": updated_assignments,
-            "assignments_total": len(updated_assignments),
-            "show_all_assignments": False,
-            "grants": updated_grants,
-            "grants_total": len(updated_grants),
-            "show_all_grants": False,
-            "error": None,
-            "notice": "Scholar updated.",
-        },
+        context,
         headers={"HX-Trigger": "scholar-changed"},
     )
 
@@ -369,21 +313,8 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
         # below even on failure, so a delete that didn't happen still
         # looked like it had - re-render the (still-present) detail panel
         # with the error instead of silently no-oping.
-        err_assignments = dept_service.list_for_scholar(db, scholar_id)
-        err_grants = grant_service.list_for_scholar(db, scholar_id)
-        return templates.TemplateResponse(
-            request,
-            "partials/scholar_detail.html",
-            {
-                "scholar": scholar_service.get_scholar(db, scholar_id),
-                "assignments": err_assignments,
-                "assignments_total": len(err_assignments),
-                "show_all_assignments": False,
-                "grants": err_grants,
-                "grants_total": len(err_grants),
-                "show_all_grants": False,
-                "error": str(e),
-            },
-        )
+        scholar = scholar_service.get_scholar(db, scholar_id)
+        context = scholar_service.build_detail_context(db, scholar, error=str(e))
+        return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
     # htmx swaps the detail panel to empty on delete
     return HTMLResponse("", headers={"HX-Trigger": "scholar-changed"})
