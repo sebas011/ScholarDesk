@@ -38,3 +38,20 @@ def on_validation_error(request: Request, exc: RequestValidationError):
         {"scholar": None, "error": message},
         status_code=422,
     )
+
+
+@app.exception_handler(Exception)
+def on_unhandled_exception(request: Request, exc: Exception):
+    """Last-resort safety net: anything that isn't RequestValidationError
+    or already caught by a route's own try/except lands here instead of
+    a raw framework 500. Logs the real exception for debugging, shows
+    the user a generic message - never the exception text itself, since
+    an unexpected exception (unlike our own ValueError messages) hasn't
+    been vetted as safe to display."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return templates.TemplateResponse(
+        request,
+        "partials/scholar_detail.html",
+        {"scholar": None, "error": "Something went wrong. Please try again."},
+        status_code=500,
+    )
