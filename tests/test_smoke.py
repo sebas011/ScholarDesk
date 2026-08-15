@@ -157,3 +157,76 @@ def test_duplicate_name_warns_but_does_not_block(client):
     resp = client.post("/scholars", data={"name": "Ana Reyes", "department": "CAS"})
     assert resp.status_code == 200
     assert "already existed" in resp.text
+
+
+def test_add_assignment_with_blank_department_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Assignment Test Scholar"})
+    resp = client.post("/scholars/1/assignments", data={"department": "   "})
+    assert resp.status_code == 200
+    assert "required" in resp.text.lower()
+
+
+def test_update_assignment_with_blank_department_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Update Assignment Scholar", "department": "CCS"})
+    resp = client.post("/assignments/1?scholar_id=1", data={"department": "   "})
+    assert resp.status_code == 200
+    assert "required" in resp.text.lower()
+
+
+def test_delete_nonexistent_assignment_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Delete Assignment Scholar"})
+    resp = client.delete("/assignments/999?scholar_id=1")
+    assert resp.status_code == 200
+    assert "not found" in resp.text.lower()
+
+
+def test_add_grant_with_blank_program_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Grant Test Scholar"})
+    resp = client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "   ", "start_year": "2024"},
+    )
+    assert resp.status_code == 200
+    assert "required" in resp.text.lower()
+
+
+def test_add_grant_with_invalid_status_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Grant Status Test Scholar"})
+    resp = client.post(
+        "/scholars/1/grants",
+        data={
+            "program_applied": "Test Grant",
+            "status": "Not A Real Status",
+            "start_year": "2024",
+        },
+    )
+    assert resp.status_code == 200
+    assert "invalid status" in resp.text.lower()
+
+
+def test_update_grant_with_blank_program_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Update Grant Scholar"})
+    client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "Original Grant", "start_year": "2024"},
+    )
+    resp = client.post(
+        "/grants/1?scholar_id=1", data={"program_applied": "   ", "status": "Active"}
+    )
+    assert resp.status_code == 200
+    assert "required" in resp.text.lower()
+
+
+def test_delete_nonexistent_grant_shows_error_not_500(client):
+    client.post("/scholars", data={"name": "Delete Grant Scholar"})
+    resp = client.delete("/grants/999?scholar_id=1")
+    assert resp.status_code == 200
+    assert "not found" in resp.text.lower()
+
+
+def test_dashboard_page_loads_with_data(client):
+    client.post("/scholars", data={"name": "Dashboard Test Scholar", "department": "CAS"})
+    resp = client.get("/dashboard")
+    assert resp.status_code == 200
+    assert "Dashboard Test Scholar" in resp.text
+    assert "CAS" in resp.text
