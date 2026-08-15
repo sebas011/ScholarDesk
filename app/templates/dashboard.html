@@ -1,7 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Dashboard</h1>
-<div class="card">
-    <p style="color:#888;">Full scholar data table coming soon.</p>
+<p style="color:#888; font-size:13px; margin-top:-8px; margin-bottom:20px;">
+    Every scholar with all their department assignments and grants, in one view.
+</p>
+
+<div class="card" style="overflow-x:auto;">
+    <table>
+        <tr>
+            <th>Scholar</th>
+            <th>Age</th>
+            <th>Previous Degree</th>
+            <th>Department Assignments</th>
+            <th>Grants</th>
+        </tr>
+        {% for row in rows %}
+        <tr>
+            <td style="white-space:nowrap;">
+                <a href="/scholars?scholar_id={{ row.scholar.id }}" style="color:inherit; font-weight:600;">
+                    {{ row.scholar.name }}
+                </a>
+                {% if row.scholar.missing_requirements %}
+                <div style="font-size:11px; color:#c0392b;">Missing requirements</div>
+                {% endif %}
+            </td>
+            <td>{{ row.scholar.age or "" }}</td>
+            <td>{{ row.scholar.previous_degree or "" }}</td>
+            <td>
+                {% for a in row.assignments %}
+                <div style="padding:3px 0; {% if not loop.last %}border-bottom:1px dashed var(--border, #e3e6ea);{% endif %}">
+                    <strong>{{ a.department }}</strong>{% if a.rank %} - {{ a.rank }}{% endif %}
+                    <div style="font-size:11px; color:#888;">
+                        {{ a.date_started or "?" }} to {{ a.date_ended or "present" }}
+                        {% if a.tenure %} - {{ a.tenure }}{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <span style="color:#888;">None</span>
+                {% endfor %}
+            </td>
+            <td>
+                {% for g in row.grants %}
+                <div style="padding:3px 0; {% if not loop.last %}border-bottom:1px dashed var(--border, #e3e6ea);{% endif %}">
+                    <strong>{{ g.program_applied }}</strong>
+                    <span style="font-size:11px; color:#888;">({{ g.status }})</span>
+                    <div style="font-size:11px; color:#888;">
+                        {{ g.date_started or "?" }} to {{ g.date_ended or "ongoing" }}
+                        {% if g.extension %} - Ext: {{ g.extension }}{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <span style="color:#888;">None</span>
+                {% endfor %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color:#888; text-align:center; padding:24px;">No scholars yet.</td></tr>
+        {% endfor %}
+    </table>
 </div>
 {% endblock %}

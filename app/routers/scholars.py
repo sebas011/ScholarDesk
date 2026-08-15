@@ -31,6 +31,8 @@ def _parse_year(year: str | None) -> int | None:
 
 router = APIRouter()
 
+ROWS_SHOWN_BY_DEFAULT = 10
+
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
     year = _parse_year(year) # type: ignore
@@ -103,12 +105,40 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/scholars", response_class=HTMLResponse)
 def scholars_page(
-    request: Request, q: str | None = None, year: str | None = None, db: Session = Depends(get_db)
+    request: Request,
+    q: str | None = None,
+    year: str | None = None,
+    scholar_id: int | None = None,
+    db: Session = Depends(get_db),
 ):
     year = _parse_year(year) # type: ignore
     from app.services import stats as stats_service
 
     scholars, total = scholar_service.list_scholars(db, search=q, year=year, limit=100, offset=0) # type: ignore
+
+    # When arriving with ?scholar_id=, pre-render that scholar's detail
+    # panel instead of the default "New Scholar" form - used by links
+    # into this page from elsewhere (e.g. the Dashboard table), which
+    # can't target #scholar-detail via htmx the way in-page links do.
+    detail_context = {"scholar": None, "error": None}
+    if scholar_id is not None:
+        selected = scholar_service.get_scholar(db, scholar_id)
+        if selected is None:
+            detail_context = {"scholar": None, "error": "Scholar not found."}
+        else:
+            all_assignments = dept_service.list_for_scholar(db, scholar_id)
+            all_grants = grant_service.list_for_scholar(db, scholar_id)
+            detail_context = {
+                "scholar": selected,
+                "assignments": all_assignments[:ROWS_SHOWN_BY_DEFAULT],
+                "assignments_total": len(all_assignments),
+                "show_all_assignments": False,
+                "grants": all_grants[:ROWS_SHOWN_BY_DEFAULT],
+                "grants_total": len(all_grants),
+                "show_all_grants": False,
+                "error": None,
+            }
+
     return templates.TemplateResponse(
         request,
         "scholars.html",
@@ -120,6 +150,7 @@ def scholars_page(
             "available_years": stats_service.years_with_data(db),
             "offset": 0,
             "limit": 100,
+            "detail_context": detail_context,
         },
     )
 
@@ -161,9 +192,6 @@ def new_scholar_form(request: Request):
     return templates.TemplateResponse(
         request, "partials/scholar_detail.html", {"scholar": None, "error": None}
     )
-
-
-ROWS_SHOWN_BY_DEFAULT = 10
 
 
 @router.get("/scholars/{scholar_id}", response_class=HTMLResponse)

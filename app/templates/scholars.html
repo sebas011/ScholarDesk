@@ -30,7 +30,9 @@
         </ul>
     </div>
     <div class="card" id="scholar-detail">
+        {% with scholar=detail_context.scholar, error=detail_context.error, assignments=detail_context.get("assignments", []), assignments_total=detail_context.get("assignments_total", 0), show_all_assignments=detail_context.get("show_all_assignments", False), grants=detail_context.get("grants", []), grants_total=detail_context.get("grants_total", 0), show_all_grants=detail_context.get("show_all_grants", False) %}
         {% include "partials/scholar_detail.html" %}
+        {% endwith %}
     </div>
 </div>
 {% endblock %}
