@@ -40,8 +40,12 @@ class DepartmentAssignment(Base):
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     rank: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tenure: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    date_started: Mapped[date | None] = mapped_column(Date, nullable=True)
-    date_ended: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Indexed - these are the columns list_scholars/total_scholars_active_in_year/
+    # department_distribution filter on via SQL WHERE clauses (see
+    # app/services/stats.py's _assignments_active_in_year_filter). Without
+    # an index, every one of those queries is a full table scan.
+    date_started: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    date_ended: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
 
     scholar: Mapped["Scholar"] = relationship(back_populates="assignments")
 
@@ -63,8 +67,11 @@ class Grant(Base):
     # Separate, real integer years - the one thing the year filter/dashboard
     # actually need. Kept independent of the free-text fields above so
     # "rough estimate" text never has to be parsed to make filtering work.
-    start_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    end_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Indexed for the same reason as DepartmentAssignment.date_started/
+    # date_ended above - these are what active_in_year's SQL equivalent
+    # (_grants_active_in_year_filter) actually filters on.
+    start_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    end_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     extension: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
