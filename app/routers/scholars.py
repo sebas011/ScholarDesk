@@ -8,7 +8,6 @@ from app.database import get_db
 from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
-from app.services import grants as grant_service
 from app.models import Scholar, DepartmentAssignment, Grant
 from app.core.exceptions import (
     InvalidScholarError,
@@ -121,10 +120,6 @@ def scholars_page(
     # into this page from elsewhere (e.g. the Dashboard table), which
     # can't target #scholar-detail via htmx the way in-page links do.
     detail_context = {"scholar": None, "error": None}
-    if scholar_id is not None:
-        selected = scholar_service.get_scholar(db, scholar_id)
-        if selected is None:
-            detail_context = {"scholar": None, "error": None}
     if scholar_id is not None:
         selected = scholar_service.get_scholar(db, scholar_id)
         detail_context = scholar_service.build_detail_context(
