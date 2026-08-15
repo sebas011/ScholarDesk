@@ -128,8 +128,17 @@ def new_scholar_form(request: Request):
     )
 
 
+ROWS_SHOWN_BY_DEFAULT = 10
+
+
 @router.get("/scholars/{scholar_id}", response_class=HTMLResponse)
-def scholar_detail(request: Request, scholar_id: int, db: Session = Depends(get_db)):
+def scholar_detail(
+    request: Request,
+    scholar_id: int,
+    show_all_assignments: bool = False,
+    show_all_grants: bool = False,
+    db: Session = Depends(get_db),
+):
     scholar = scholar_service.get_scholar(db, scholar_id)
     if scholar is None:
         return templates.TemplateResponse(
@@ -137,17 +146,24 @@ def scholar_detail(request: Request, scholar_id: int, db: Session = Depends(get_
             "partials/scholar_detail.html",
             {"scholar": None, "error": "Scholar not found."},
         )
+    all_assignments = dept_service.list_for_scholar(db, scholar_id)
+    all_grants = grant_service.list_for_scholar(db, scholar_id)
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
         {
             "scholar": scholar,
-            "assignments": dept_service.list_for_scholar(db, scholar_id),
-            "grants": grant_service.list_for_scholar(db, scholar_id),
+            "assignments": all_assignments
+            if show_all_assignments
+            else all_assignments[:ROWS_SHOWN_BY_DEFAULT],
+            "assignments_total": len(all_assignments),
+            "show_all_assignments": show_all_assignments,
+            "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
+            "grants_total": len(all_grants),
+            "show_all_grants": show_all_grants,
             "error": None,
         },
     )
-
 
 @router.post("/scholars", response_class=HTMLResponse)
 def create_scholar(
@@ -184,7 +200,7 @@ def create_scholar(
             )
         db.commit()
         db.refresh(scholar)
-    except (ScholarNotFoundError, InvalidScholarError) as e:
+    except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
         return templates.TemplateResponse(
             request,
@@ -192,13 +208,18 @@ def create_scholar(
             {"scholar": None, "error": str(e)},
         )
 
+    new_assignments = dept_service.list_for_scholar(db, scholar.id)
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
         {
             "scholar": scholar,
-            "assignments": dept_service.list_for_scholar(db, scholar.id),
+            "assignments": new_assignments,
+            "assignments_total": len(new_assignments),
+            "show_all_assignments": False,
             "grants": [],
+            "grants_total": 0,
+            "show_all_grants": False,
             "error": None,
             "notice": (
                 f"Scholar added (ID {scholar.id})."
@@ -234,27 +255,39 @@ def update_scholar(
         )
         db.commit()
         db.refresh(scholar)
-    except (ScholarNotFoundError, InvalidScholarError) as e:
+    except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
         scholar = scholar_service.get_scholar(db, scholar_id)
+        err_assignments = dept_service.list_for_scholar(db, scholar_id) if scholar else []
+        err_grants = grant_service.list_for_scholar(db, scholar_id) if scholar else []
         return templates.TemplateResponse(
             request,
             "partials/scholar_detail.html",
             {
                 "scholar": scholar,
-                "assignments": dept_service.list_for_scholar(db, scholar_id) if scholar else [],
-                "grants": grant_service.list_for_scholar(db, scholar_id) if scholar else [],
+                "assignments": err_assignments,
+                "assignments_total": len(err_assignments),
+                "show_all_assignments": False,
+                "grants": err_grants,
+                "grants_total": len(err_grants),
+                "show_all_grants": False,
                 "error": str(e),
             },
         )
 
+    updated_assignments = dept_service.list_for_scholar(db, scholar_id)
+    updated_grants = grant_service.list_for_scholar(db, scholar_id)
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
         {
             "scholar": scholar,
-            "assignments": dept_service.list_for_scholar(db, scholar_id),
-            "grants": grant_service.list_for_scholar(db, scholar_id),
+            "assignments": updated_assignments,
+            "assignments_total": len(updated_assignments),
+            "show_all_assignments": False,
+            "grants": updated_grants,
+            "grants_total": len(updated_grants),
+            "show_all_grants": False,
             "error": None,
             "notice": "Scholar updated.",
         },
@@ -267,19 +300,25 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
     try:
         scholar_service.delete_scholar(db, scholar_id)
         db.commit()
-    except (ScholarNotFoundError, InvalidScholarError) as e:
+    except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
         # Previously this fell straight through to the empty-panel return
         # below even on failure, so a delete that didn't happen still
         # looked like it had - re-render the (still-present) detail panel
         # with the error instead of silently no-oping.
+        err_assignments = dept_service.list_for_scholar(db, scholar_id)
+        err_grants = grant_service.list_for_scholar(db, scholar_id)
         return templates.TemplateResponse(
             request,
             "partials/scholar_detail.html",
             {
                 "scholar": scholar_service.get_scholar(db, scholar_id),
-                "assignments": dept_service.list_for_scholar(db, scholar_id),
-                "grants": grant_service.list_for_scholar(db, scholar_id),
+                "assignments": err_assignments,
+                "assignments_total": len(err_assignments),
+                "show_all_assignments": False,
+                "grants": err_grants,
+                "grants_total": len(err_grants),
+                "show_all_grants": False,
                 "error": str(e),
             },
         )

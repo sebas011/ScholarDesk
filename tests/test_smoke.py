@@ -140,6 +140,18 @@ def test_delete_nonexistent_scholar_reports_error_not_silent_success(client):
     assert "not found" in resp.text.lower()
 
 
+def test_update_scholar_with_whitespace_only_name_shows_error_not_500(client):
+    """Regression test: a name of only spaces satisfies the HTML `required`
+    attribute (so the browser lets the form submit) but fails our own
+    validation once .strip()'d - the service layer raises a plain
+    ValueError for this, which the route's except clause didn't catch,
+    causing an uncaught 500 instead of the intended inline error."""
+    client.post("/scholars", data={"name": "Real Name", "department": "CCS"})
+    resp = client.post("/scholars/1", data={"name": "   "})
+    assert resp.status_code == 200
+    assert "required" in resp.text.lower()
+
+
 def test_duplicate_name_warns_but_does_not_block(client):
     client.post("/scholars", data={"name": "Ana Reyes", "department": "COED"})
     resp = client.post("/scholars", data={"name": "Ana Reyes", "department": "CAS"})
