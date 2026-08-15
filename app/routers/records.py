@@ -16,17 +16,36 @@ from app.utils.dates import parse_date
 
 router = APIRouter()
 
-def _render_scholar_detail(request: Request, db: Session, scholar_id: int, error=None, notice=None):
+ROWS_SHOWN_BY_DEFAULT = 10
+
+
+def _render_scholar_detail(
+    request: Request,
+    db: Session,
+    scholar_id: int,
+    error=None,
+    notice=None,
+    show_all_assignments: bool = False,
+    show_all_grants: bool = False,
+):
     from app.services import scholars as scholar_service
 
     scholar = scholar_service.get_scholar(db, scholar_id)
+    all_assignments = dept_service.list_for_scholar(db, scholar_id)
+    all_grants = grant_service.list_for_scholar(db, scholar_id)
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
         {
             "scholar": scholar,
-            "assignments": dept_service.list_for_scholar(db, scholar_id),
-            "grants": grant_service.list_for_scholar(db, scholar_id),
+            "assignments": all_assignments
+            if show_all_assignments
+            else all_assignments[:ROWS_SHOWN_BY_DEFAULT],
+            "assignments_total": len(all_assignments),
+            "show_all_assignments": show_all_assignments,
+            "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
+            "grants_total": len(all_grants),
+            "show_all_grants": show_all_grants,
             "error": error,
             "notice": notice,
         },

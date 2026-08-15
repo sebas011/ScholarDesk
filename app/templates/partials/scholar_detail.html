@@ -77,6 +77,17 @@
     <tr><td colspan="6" style="color:#888;">No assignments yet.</td></tr>
     {% endfor %}
 </table>
+{% if assignments_total > assignments|length or show_all_assignments %}
+<div style="font-size:12px; margin-top:6px;">
+    {% if show_all_assignments %}
+    <a href="#" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
+    {% else %}
+    <a href="#" hx-get="/scholars/{{ scholar.id }}?show_all_assignments=true" hx-target="#scholar-detail">
+        Show all {{ assignments_total }} assignments
+    </a>
+    {% endif %}
+</div>
+{% endif %}
 <form hx-post="/scholars/{{ scholar.id }}/assignments" hx-target="#scholar-detail"
       style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border, #e3e6ea);">
     <div style="display:grid; grid-template-columns: repeat(5, 1fr) auto; gap:8px; align-items:end;">
@@ -112,6 +123,17 @@
     <tr><td colspan="8" style="color:#888;">No grants yet.</td></tr>
     {% endfor %}
 </table>
+{% if grants_total > grants|length or show_all_grants %}
+<div style="font-size:12px; margin-top:6px;">
+    {% if show_all_grants %}
+    <a href="#" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
+    {% else %}
+    <a href="#" hx-get="/scholars/{{ scholar.id }}?show_all_grants=true" hx-target="#scholar-detail">
+        Show all {{ grants_total }} grants
+    </a>
+    {% endif %}
+</div>
+{% endif %}
 <form hx-post="/scholars/{{ scholar.id }}/grants" hx-target="#scholar-detail"
       style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border, #e3e6ea);">
     <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
