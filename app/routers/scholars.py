@@ -66,6 +66,11 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
     )
 
 
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard_page(request: Request):
+    return templates.TemplateResponse(request, "dashboard.html", {})
+
+
 @router.get("/scholars", response_class=HTMLResponse)
 def scholars_page(
     request: Request, q: str | None = None, year: str | None = None, db: Session = Depends(get_db)

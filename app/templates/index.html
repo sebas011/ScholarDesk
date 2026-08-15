@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
-    <h1 style="margin:0;">Dashboard</h1>
-    <form method="get" action="/" style="display:flex; align-items:center; gap:8px; margin:0;">
+    <h1 style="margin:0;">Home</h1>
+    <div style="display:flex; align-items:center; gap:16px;">
+        <a href="/scholars" style="text-decoration:none;"><button type="button">+ Add Scholar</button></a>
+        <form method="get" action="/" style="display:flex; align-items:center; gap:8px; margin:0;">
         <label style="margin:0; text-transform:none; font-size:13px; font-weight:600; color:#555;">School year</label>
         <select name="year" onchange="this.form.submit()" style="width:auto; margin:0; min-width:140px;">
             <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
@@ -10,7 +12,8 @@
             <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
             {% endfor %}
         </select>
-    </form>
+        </form>
+    </div>
 </div>
 {% if not available_years %}
 <div class="card" style="background:#fafbfc; color:#888; font-size:13px; box-shadow:none;">
