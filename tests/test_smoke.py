@@ -159,6 +159,15 @@ def test_duplicate_name_warns_but_does_not_block(client):
     assert "already existed" in resp.text
 
 
+def test_scholar_name_too_long_shows_error_not_silently_truncated(client):
+    """SQLite doesn't enforce VARCHAR(n) column limits, so without an
+    explicit check a name longer than the declared 200 chars would be
+    silently accepted and stored in full rather than rejected."""
+    resp = client.post("/scholars", data={"name": "A" * 201})
+    assert resp.status_code == 200
+    assert "too long" in resp.text.lower()
+
+
 def test_add_assignment_with_blank_department_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Assignment Test Scholar"})
     resp = client.post("/scholars/1/assignments", data={"department": "   "})

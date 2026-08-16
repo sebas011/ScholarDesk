@@ -156,6 +156,10 @@ def find_scholar_by_name(db: Session, name: str) -> Scholar | None:
     return db.query(Scholar).filter(Scholar.name.ilike(name.strip())).first()
 
 
+NAME_MAX_LENGTH = 200
+PREVIOUS_DEGREE_MAX_LENGTH = 300
+
+
 def create_scholar(
     db: Session,
     name: str,
@@ -166,6 +170,13 @@ def create_scholar(
     name = (name or "").strip()
     if not name:
         raise ValueError("Scholar name is required.")
+    if len(name) > NAME_MAX_LENGTH:
+        raise ValueError(f"Scholar name is too long (max {NAME_MAX_LENGTH} characters).")
+    previous_degree = (previous_degree or "").strip()
+    if len(previous_degree) > PREVIOUS_DEGREE_MAX_LENGTH:
+        raise ValueError(
+            f"Previous degree is too long (max {PREVIOUS_DEGREE_MAX_LENGTH} characters)."
+        )
 
     scholar = Scholar(
         name=name,
@@ -204,6 +215,13 @@ def update_scholar(
     name = (name or "").strip()
     if not name:
         raise ValueError("Scholar name is required.")
+    if len(name) > NAME_MAX_LENGTH:
+        raise ValueError(f"Scholar name is too long (max {NAME_MAX_LENGTH} characters).")
+    previous_degree = (previous_degree or "").strip()
+    if len(previous_degree) > PREVIOUS_DEGREE_MAX_LENGTH:
+        raise ValueError(
+            f"Previous degree is too long (max {PREVIOUS_DEGREE_MAX_LENGTH} characters)."
+        )
 
     try:
         scholar.name = name
