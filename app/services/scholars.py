@@ -158,6 +158,17 @@ def find_scholar_by_name(db: Session, name: str) -> Scholar | None:
 
 NAME_MAX_LENGTH = 200
 PREVIOUS_DEGREE_MAX_LENGTH = 300
+AGE_MIN = 15
+AGE_MAX = 100
+
+
+def _validate_age(age: int | None) -> None:
+    """Shared by create_scholar and update_scholar. The form already
+    rejects non-digit input, but doesn't stop something like 99999 -
+    this is a sanity range, not a strict legal-eligibility rule, so
+    it's intentionally generous (covers any realistic scholar)."""
+    if age is not None and not (AGE_MIN <= age <= AGE_MAX):
+        raise ValueError(f"Age must be between {AGE_MIN} and {AGE_MAX}.")
 
 
 def create_scholar(
@@ -177,6 +188,7 @@ def create_scholar(
         raise ValueError(
             f"Previous degree is too long (max {PREVIOUS_DEGREE_MAX_LENGTH} characters)."
         )
+    _validate_age(age)
 
     scholar = Scholar(
         name=name,
@@ -222,6 +234,7 @@ def update_scholar(
         raise ValueError(
             f"Previous degree is too long (max {PREVIOUS_DEGREE_MAX_LENGTH} characters)."
         )
+    _validate_age(age)
 
     try:
         scholar.name = name

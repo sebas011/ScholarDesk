@@ -168,6 +168,12 @@ def test_scholar_name_too_long_shows_error_not_silently_truncated(client):
     assert "too long" in resp.text.lower()
 
 
+def test_absurd_age_shows_error_not_silently_accepted(client):
+    resp = client.post("/scholars", data={"name": "Age Test Scholar", "age": "99999"})
+    assert resp.status_code == 200
+    assert "age must be between" in resp.text.lower()
+
+
 def test_add_assignment_with_blank_department_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Assignment Test Scholar"})
     resp = client.post("/scholars/1/assignments", data={"department": "   "})
