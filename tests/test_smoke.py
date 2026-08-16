@@ -206,6 +206,17 @@ def test_add_grant_with_blank_program_shows_error_not_500(client):
     assert "required" in resp.text.lower()
 
 
+def test_grant_program_applied_too_long_shows_error_not_silently_truncated(client):
+    client.post("/scholars", data={"name": "Long Grant Scholar"})
+    resp = client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "P" * 301, "start_year": "2024"},
+    )
+    assert resp.status_code == 200
+    assert "too long" in resp.text.lower()
+
+
+
 def test_add_grant_with_invalid_status_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Grant Status Test Scholar"})
     resp = client.post(
