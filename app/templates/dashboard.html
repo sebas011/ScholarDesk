@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Dashboard</h1>
-<p style="color:#888; font-size:13px; margin-top:-8px; margin-bottom:20px;">
+<p class="text-muted" style="font-size:13px; margin-top:-8px; margin-bottom:20px;">
     Every scholar with all their department assignments and grants, in one view.
 </p>
 
@@ -28,34 +28,34 @@
             <td>{{ row.scholar.previous_degree or "" }}</td>
             <td>
                 {% for a in row.assignments %}
-                <div style="padding:3px 0; {% if not loop.last %}border-bottom:1px dashed var(--border, #e3e6ea);{% endif %}">
+                <div class="stacked-item">
                     <strong>{{ a.department }}</strong>{% if a.rank %} - {{ a.rank }}{% endif %}
-                    <div style="font-size:11px; color:#888;">
+                    <div class="text-muted-sm">
                         {{ a.date_started or "?" }} to {{ a.date_ended or "present" }}
                         {% if a.tenure %} - {{ a.tenure }}{% endif %}
                     </div>
                 </div>
                 {% else %}
-                <span style="color:#888;">None</span>
+                <span class="text-muted">None</span>
                 {% endfor %}
             </td>
             <td>
                 {% for g in row.grants %}
-                <div style="padding:3px 0; {% if not loop.last %}border-bottom:1px dashed var(--border, #e3e6ea);{% endif %}">
+                <div class="stacked-item">
                     <strong>{{ g.program_applied }}</strong>
-                    <span style="font-size:11px; color:#888;">({{ g.status }})</span>
-                    <div style="font-size:11px; color:#888;">
+                    <span class="text-muted-sm">({{ g.status }})</span>
+                    <div class="text-muted-sm">
                         {{ g.date_started or "?" }} to {{ g.date_ended or "ongoing" }}
                         {% if g.extension %} - Ext: {{ g.extension }}{% endif %}
                     </div>
                 </div>
                 {% else %}
-                <span style="color:#888;">None</span>
+                <span class="text-muted">None</span>
                 {% endfor %}
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" style="color:#888; text-align:center; padding:24px;">No scholars yet.</td></tr>
+        <tr><td colspan="5" class="text-muted" style="text-align:center; padding:24px;">No scholars yet.</td></tr>
         {% endfor %}
     </table>
 </div>
