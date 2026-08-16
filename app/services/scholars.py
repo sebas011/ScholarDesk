@@ -62,6 +62,38 @@ def build_detail_context(
     }
 
 
+def get_full_scholar_data(db: Session) -> list[dict]:
+    """Every scholar with all their assignments and grants, grouped -
+    the data behind the /dashboard wide table. Three queries total
+    (all scholars, all assignments, all grants), grouped in Python by
+    scholar_id, rather than one query per scholar - the same N+1
+    pattern the rest of the app avoids. Lives here rather than in the
+    router so /dashboard follows the same router -> service -> model
+    pattern every other route does."""
+    from app.models import DepartmentAssignment, Grant
+
+    all_scholars = db.query(Scholar).order_by(Scholar.name).all()
+    all_assignments = db.query(DepartmentAssignment).order_by(DepartmentAssignment.id).all()
+    all_grants = db.query(Grant).order_by(Grant.id).all()
+
+    assignments_by_scholar: dict[int, list] = {}
+    for a in all_assignments:
+        assignments_by_scholar.setdefault(a.scholar_id, []).append(a)
+
+    grants_by_scholar: dict[int, list] = {}
+    for g in all_grants:
+        grants_by_scholar.setdefault(g.scholar_id, []).append(g)
+
+    return [
+        {
+            "scholar": s,
+            "assignments": assignments_by_scholar.get(s.id, []),
+            "grants": grants_by_scholar.get(s.id, []),
+        }
+        for s in all_scholars
+    ]
+
+
 def list_scholars(
     db: Session,
     search: str | None = None,
