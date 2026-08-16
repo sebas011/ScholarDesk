@@ -175,6 +175,13 @@ def test_add_assignment_with_blank_department_shows_error_not_500(client):
     assert "required" in resp.text.lower()
 
 
+def test_assignment_department_too_long_shows_error_not_silently_truncated(client):
+    client.post("/scholars", data={"name": "Long Department Scholar"})
+    resp = client.post("/scholars/1/assignments", data={"department": "D" * 101})
+    assert resp.status_code == 200
+    assert "too long" in resp.text.lower()
+
+
 def test_update_assignment_with_blank_department_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Update Assignment Scholar", "department": "CCS"})
     resp = client.post("/assignments/1?scholar_id=1", data={"department": "   "})

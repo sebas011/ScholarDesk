@@ -6,11 +6,26 @@ the exact discipline the VBA version lost when three modules each had
 their own opinion about what "primary" meant.
 """
 from datetime import date
-
 from sqlalchemy.orm import Session
-
 from app.models import DepartmentAssignment, Scholar
 from app.utils.dates import range_active_in_year
+
+DEPARTMENT_MAX_LENGTH = 100
+RANK_MAX_LENGTH = 100
+TENURE_MAX_LENGTH = 100
+
+
+def _validate_field_lengths(department: str, rank: str | None, tenure: str | None) -> None:
+    """Shared by create_assignment and update_assignment. SQLite doesn't
+    enforce VARCHAR(n) column limits, so without this a value longer
+    than the model's declared width is silently accepted and stored in
+    full rather than rejected."""
+    if len(department) > DEPARTMENT_MAX_LENGTH:
+        raise ValueError(f"Department is too long (max {DEPARTMENT_MAX_LENGTH} characters).")
+    if rank and len(rank) > RANK_MAX_LENGTH:
+        raise ValueError(f"Rank is too long (max {RANK_MAX_LENGTH} characters).")
+    if tenure and len(tenure) > TENURE_MAX_LENGTH:
+        raise ValueError(f"Tenure is too long (max {TENURE_MAX_LENGTH} characters).")
 
 
 def list_for_scholar(db: Session, scholar_id: int) -> list[DepartmentAssignment]:
@@ -57,12 +72,14 @@ def create_assignment(
     department = (department or "").strip()
     if not department:
         raise ValueError("Department is required.")
-
+    rank = (rank or "").strip() or None
+    tenure = (tenure or "").strip() or None
+    _validate_field_lengths(department, rank, tenure)
     assignment = DepartmentAssignment(
         scholar_id=scholar_id,
         department=department,
-        rank=(rank or "").strip() or None,
-        tenure=(tenure or "").strip() or None,
+        rank=rank,
+        tenure=tenure,
         date_started=date_started,
         date_ended=date_ended,
     )
@@ -87,10 +104,12 @@ def update_assignment(
     department = (department or "").strip()
     if not department:
         raise ValueError("Department is required.")
-
+    rank = (rank or "").strip() or None
+    tenure = (tenure or "").strip() or None
+    _validate_field_lengths(department, rank, tenure)
     assignment.department = department
-    assignment.rank = (rank or "").strip() or None
-    assignment.tenure = (tenure or "").strip() or None
+    assignment.rank = rank
+    assignment.tenure = tenure
     assignment.date_started = date_started
     assignment.date_ended = date_ended
     return assignment
