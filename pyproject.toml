@@ -6,3 +6,7 @@ target-version = "py311"
 # Start conservative: undefined names, unused imports, basic style.
 # We can widen this rule set later once the baseline is clean.
 select = ["E", "F", "W"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/templates_config.py"]
