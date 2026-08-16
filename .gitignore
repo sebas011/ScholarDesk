@@ -16,3 +16,4 @@ logs/
 .vs/
 *.db.backup*
 .vscode/
+.coverage
