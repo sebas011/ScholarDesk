@@ -107,7 +107,12 @@
     {% for g in grants %}
     <tr id="grant-row-{{ g.id }}">
         <td>{{ g.program_applied }}</td><td>{{ g.type_of_grant or "" }}</td><td>{{ g.delivering_hei or "" }}</td>
-        <td>{{ g.date_started or "" }}</td><td>{{ g.date_ended or "" }}</td><td>{{ g.status }}</td>
+        <td>{{ g.date_started or "" }}</td><td>{{ g.date_ended or "" }}</td>
+        <td>
+            <span class="status-pill status-{{ g.status|lower|replace(' ', '-') }}">
+                {{ g.status }}
+            </span>
+        </td>
         <td>{{ g.extension or "" }}</td>
         <td style="white-space:nowrap;">
             <button type="button" class="secondary btn-sm"
