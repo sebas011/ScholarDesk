@@ -135,36 +135,25 @@
             box-shadow: 0 1px 2px rgba(16,24,40,0.04);
         }
         .stat-box .num { font-size: 30px; font-weight: 700; color: var(--accent-dark); line-height: 1.1; }
-        /* Status pill styles (replace your existing status-pill block with this) */
-.status-pill {
-    display: inline-block;
-    padding: 4px 10px;                 /* slightly wider for small text */
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #ffffff;
-    line-height: 1;
-    white-space: nowrap;
-    vertical-align: middle;
-    text-transform: none;              /* preserve original casing */
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
-}
-
-/* Color classes (status-<lowercase-with-hyphens>) */
-.status-active     { background: #0EA5A4; }  /* teal */
-.status-pending    { background: #F59E0B; }  /* amber */
-.status-completed  { background: #10B981; }  /* green */
-.status-awarded    { background: #10B981; }  /* green alias */
-.status-cancelled  { background: #9CA3AF; }  /* gray */
-.status-on-hold    { background: #F59E0B; }  /* amber */
-.status-withdrawn  { background: #EF4444; }  /* red */
-.status-neutral    { background: #9CA3AF; }  /* fallback gray */
-
-/* Accessibility: ensure focusable pills (if ever interactive) show outline */
-.status-pill:focus {
-    outline: 3px solid rgba(45,95,138,0.18);
-    outline-offset: 2px;
-}
+        /* Status pill styles */
+        .status-pill {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .status-active { background: #0EA5A4; }     /* calm teal */
+        .status-pending { background: #F59E0B; }    /* amber */
+        .status-completed { background: #10B981; }  /* green */
+        .status-awarded { background: #10B981; }    /* green alias */
+        .status-cancelled { background: #9CA3AF; }  /* gray */
+        .status-on-hold { background: #F59E0B; }    /* amber */
+        .status-withdrawn { background: #EF4444; }  /* red */
+        .status-neutral { background: #9CA3AF; }    /* fallback gray */
 
     </style>
 </head>
@@ -175,7 +164,128 @@
     <a href="/dashboard">Dashboard</a>
 </header>
 <main>
-    {% block content %}{% endblock %}
+    
+<div class="layout">
+    <div class="card">
+        <button style="width:100%; margin-bottom:14px;" hx-get="/scholars/new" hx-target="#scholar-detail">
+            + New Scholar
+        </button>
+
+        <input type="search" name="q" placeholder="Search by name..." value=""
+               style="margin-bottom:8px;"
+               hx-get="/scholars/list" hx-trigger="input changed delay:300ms" hx-target="#scholar-list"
+               hx-include="#year-filter" hx-vals='{"offset": 0}'>
+
+        <select id="year-filter" name="year" style="margin-bottom:10px;"
+                hx-get="/scholars/list" hx-trigger="change" hx-target="#scholar-list"
+                hx-include="[name='q']" hx-vals='{"offset": 0}'>
+            <option value="" selected>All years</option>
+            
+            <option value="2026" >2026</option>
+            
+            <option value="2025" >2025</option>
+            
+            <option value="2024" >2024</option>
+            
+            <option value="2023" >2023</option>
+            
+            <option value="2022" >2022</option>
+            
+            <option value="2021" >2021</option>
+            
+            <option value="2020" >2020</option>
+            
+            <option value="2019" >2019</option>
+            
+            <option value="2015" >2015</option>
+            
+            <option value="1900" >1900</option>
+            
+        </select>
+
+        <div style="font-size:12px; color:#888; padding-bottom:8px; margin-bottom:6px; border-bottom:1px solid var(--border, #e3e6ea);">
+            5 scholar(s)
+        </div>
+        <ul class="scholar-list" id="scholar-list"
+            hx-trigger="scholar-changed from:body" hx-get="/scholars/list"
+            hx-include="[name='q'], #year-filter" hx-vals='{"offset": 0}'>
+            
+
+<li>
+    <a href="#" hx-get="/scholars/12" hx-target="#scholar-detail">
+        Angela Reyes
+    </a>
+</li>
+
+<li>
+    <a href="#" hx-get="/scholars/11" hx-target="#scholar-detail">
+        Juan Dela Cruz
+    </a>
+</li>
+
+<li>
+    <a href="#" hx-get="/scholars/10" hx-target="#scholar-detail">
+        Maria Santos
+    </a>
+</li>
+
+<li>
+    <a href="#" hx-get="/scholars/13" hx-target="#scholar-detail">
+        Ramon Villanueva
+    </a>
+</li>
+
+<li>
+    <a href="#" hx-get="/scholars/14" hx-target="#scholar-detail">
+        Rodian Marin
+    </a>
+</li>
+
+
+
+
+        </ul>
+    </div>
+    <div class="card" id="scholar-detail">
+        
+        
+
+
+
+<h2>New Scholar</h2>
+<form hx-post="/scholars" hx-target="#scholar-detail">
+    <label>Name *</label>
+    <input name="name" required>
+    <label>Age</label>
+    <input name="age" type="number">
+    <label>Previous Degree</label>
+    <input name="previous_degree">
+    <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin-top:14px;">
+        <input type="checkbox" name="missing_requirements" value="true" style="width:auto; margin:0;"> Missing Requirements
+    </label>
+
+    <h4>Initial Department Assignment (optional)</h4>
+    <label>Department</label>
+    <input name="department">
+    <label>Rank</label>
+    <input name="rank">
+    <label>Tenure</label>
+    <input name="tenure">
+    <label>Started</label>
+    <input name="date_started" type="date">
+    <label>Ended</label>
+    <input name="date_ended" type="date">
+
+    <div class="row-actions">
+        <button type="submit">Add Scholar</button>
+    </div>
+</form>
+
+
+        
+    </div>
+</div>
+
 </main>
 </body>
 </html>
