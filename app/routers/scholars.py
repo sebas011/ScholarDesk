@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -151,9 +151,83 @@ def scholars_list_partial(
 
 @router.get("/scholars/new", response_class=HTMLResponse)
 def new_scholar_form(request: Request):
-    return templates.TemplateResponse(
-        request, "partials/scholar_detail.html", {"scholar": None, "error": None}
-    )
+    """Serves two different things from one URL, told apart by the
+    HX-Request header htmx sends automatically on every request it
+    makes: an htmx swap (e.g. the old sidebar's '+ New Scholar' button)
+    gets just the form partial to swap into its target; a normal
+    browser navigation gets the real, dedicated full page. Without this
+    branch, a plain page visit would try to render a bare form fragment
+    with no header/nav/styles at all - the same class of bug fixed
+    earlier for /scholars/{id}."""
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+            request, "partials/scholar_detail.html", {"scholar": None, "error": None}
+        )
+    return templates.TemplateResponse(request, "scholar_new.html", {"error": None, "form": {}})
+
+
+@router.post("/scholars/new", response_class=HTMLResponse)
+def create_scholar_page(
+    request: Request,
+    name: str = Form(...),
+    age: str = Form(""),
+    previous_degree: str = Form(""),
+    missing_requirements: bool = Form(False),
+    department: str = Form(""),
+    rank: str = Form(""),
+    tenure: str = Form(""),
+    date_started: str = Form(""),
+    date_ended: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Dedicated create page's submit target. Unlike POST /scholars
+    (used by the old sidebar's htmx swap), this is a normal HTML form
+    post - success redirects to a real new URL (a full page reload,
+    not an in-place swap); failure re-renders this same page with the
+    error and the entered values preserved, at 400, per spec."""
+    try:
+        scholar = scholar_service.create_scholar(
+            db,
+            name=name,
+            age=int(age) if age.strip().isdigit() else None,
+            previous_degree=previous_degree,
+            missing_requirements=missing_requirements,
+        )
+        if department.strip():
+            dept_service.create_assignment(
+                db,
+                scholar.id,
+                department,
+                rank,
+                tenure,
+                parse_date(date_started) or date.today(),
+                parse_date(date_ended),
+            )
+        db.commit()
+        db.refresh(scholar)
+    except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
+        db.rollback()
+        return templates.TemplateResponse(
+            request,
+            "scholar_new.html",
+            {
+                "error": str(e),
+                "form": {
+                    "name": name,
+                    "age": age,
+                    "previous_degree": previous_degree,
+                    "department": department,
+                    "rank": rank,
+                    "tenure": tenure,
+                },
+            },
+            status_code=400,
+        )
+
+    # Temporary redirect target until the real /scholars/{id} profile
+    # page exists (next task) - /scholars?scholar_id= is today's
+    # working full-page view of a scholar.
+    return RedirectResponse(url=f"/scholars?scholar_id={scholar.id}", status_code=303)
 
 
 @router.get("/scholars/{scholar_id}", response_class=HTMLResponse)

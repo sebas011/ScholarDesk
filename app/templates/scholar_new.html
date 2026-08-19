@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Add Scholar</h1>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="card" style="max-width:700px;">
+    <form method="post" action="/scholars/new">
+        <label>Name *</label>
+        <input name="name" value="{{ form.name or '' }}" required>
+        <label>Age</label>
+        <input name="age" type="number" value="{{ form.age or '' }}">
+        <label>Previous Degree</label>
+        <input name="previous_degree" value="{{ form.previous_degree or '' }}">
+        <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin-top:14px;">
+            <input type="checkbox" name="missing_requirements" value="true" style="width:auto; margin:0;"> Missing Requirements
+        </label>
+
+        <h4>Initial Department Assignment (optional)</h4>
+        <label>Department</label>
+        <input name="department" value="{{ form.department or '' }}">
+        <label>Rank</label>
+        <input name="rank" value="{{ form.rank or '' }}">
+        <label>Tenure</label>
+        <input name="tenure" value="{{ form.tenure or '' }}">
+        <label>Started</label>
+        <input name="date_started" type="date">
+        <label>Ended</label>
+        <input name="date_ended" type="date">
+
+        <div class="row-actions">
+            <button type="submit">Add Scholar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
