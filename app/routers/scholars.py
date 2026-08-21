@@ -224,10 +224,7 @@ def create_scholar_page(
             status_code=400,
         )
 
-    # Temporary redirect target until the real /scholars/{id} profile
-    # page exists (next task) - /scholars?scholar_id= is today's
-    # working full-page view of a scholar.
-    return RedirectResponse(url=f"/scholars?scholar_id={scholar.id}", status_code=303)
+        return RedirectResponse(url=f"/scholars/{scholar.id}", status_code=303)
 
 
 @router.get("/scholars/{scholar_id}", response_class=HTMLResponse)
@@ -245,7 +242,14 @@ def scholar_detail(
         context = scholar_service.build_detail_context(
             db, scholar, show_all_assignments, show_all_grants
         )
-    return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
+    # Same HX-Request branching as /scholars/new: an htmx swap (e.g. the
+    # old sidebar's click-a-name, or an edit row's Cancel/"Show all"
+    # link) gets the partial to swap into its target; a normal browser
+    # navigation gets the real, dedicated full profile page.
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
+    return templates.TemplateResponse(request, "scholar_profile.html", context)
+
 
 @router.post("/scholars", response_class=HTMLResponse)
 def create_scholar(
