@@ -224,7 +224,7 @@ def create_scholar_page(
             status_code=400,
         )
 
-        return RedirectResponse(url=f"/scholars/{scholar.id}", status_code=303)
+    return RedirectResponse(url=f"/scholars/{scholar.id}", status_code=303)
 
 
 @router.get("/scholars/{scholar_id}", response_class=HTMLResponse)
