@@ -51,7 +51,7 @@ def client():
 def test_home_starts_empty(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert '<div class="num">0</div>' in resp.text
+    assert '<div class="text-3xl font-bold text-navy-900">0</div>' in resp.text
 
 
 def test_empty_year_param_does_not_422(client):
@@ -122,13 +122,13 @@ def test_delete_scholar_cascades_to_assignments_and_grants(client):
     )
 
     dash = client.get("/")
-    assert '<div class="num">1</div>' in dash.text
+    assert '<div class="text-3xl font-bold text-navy-900">1</div>' in dash.text
 
     del_resp = client.delete("/scholars/1")
     assert del_resp.status_code == 200
 
     dash_after = client.get("/")
-    assert '<div class="num">0</div>' in dash_after.text
+    assert '<div class="text-3xl font-bold text-navy-900">0</div>' in dash_after.text
 
 
 def test_delete_nonexistent_scholar_reports_error_not_silent_success(client):
@@ -147,7 +147,7 @@ def test_update_scholar_with_whitespace_only_name_shows_error_not_500(client):
     ValueError for this, which the route's except clause didn't catch,
     causing an uncaught 500 instead of the intended inline error."""
     client.post("/scholars", data={"name": "Real Name", "department": "CCS"})
-    resp = client.post("/scholars/1", data={"name": "   "})
+    resp = client.put("/scholars/1", data={"name": "   "})
     assert resp.status_code == 200
     assert "required" in resp.text.lower()
 

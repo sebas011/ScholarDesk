@@ -87,6 +87,7 @@ def update_assignment_route(
     date_ended: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    assignment = dept_service.get_assignment(db, assignment_id)
     try:
         dept_service.update_assignment(
             db,
@@ -100,7 +101,11 @@ def update_assignment_route(
         db.commit()
     except ValueError as e:
         db.rollback()
-        return _render_scholar_detail(request, db, scholar_id, error=str(e))
+        return templates.TemplateResponse(
+            request,
+            "partials/assignment_edit_row.html",
+            {"assignment": assignment, "scholar_id": scholar_id, "error": str(e)},
+        )
     return _render_scholar_detail(request, db, scholar_id, notice="Assignment updated.")
 
 
@@ -184,6 +189,7 @@ def update_grant_route(
     remarks: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    grant = grant_service.get_grant(db, grant_id)
     try:
         grant_service.update_grant(
             db,
@@ -202,7 +208,11 @@ def update_grant_route(
         db.commit()
     except ValueError as e:
         db.rollback()
-        return _render_scholar_detail(request, db, scholar_id, error=str(e))
+        return templates.TemplateResponse(
+            request,
+            "partials/grant_edit_row.html",
+            {"grant": grant, "scholar_id": scholar_id, "error": str(e)},
+        )
     return _render_scholar_detail(request, db, scholar_id, notice="Grant updated.")
 
 
