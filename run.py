@@ -1,31 +1,30 @@
 """
-Entry point for running ScholarDesk as a standalone app - both as a
-normal `python run.py` and as a PyInstaller-frozen .exe.
-
-Why this exists instead of just `uvicorn app.main:app`: the uvicorn CLI
-with --reload spawns a subprocess and re-imports the app by module
-string, which doesn't work once everything is bundled into a single
-frozen executable (there's no separate `app.main` module for the
-subprocess to import - it's all baked into the one binary). Running
-uvicorn programmatically, in-process, with reload off, sidesteps that.
+Entry point for both development and PyInstaller builds.
 """
-import webbrowser
-import threading
-import time
-
+import sys
 import uvicorn
 
-from app.main import app
+# CRITICAL: This forces PyInstaller to bundle the entire app package
+import app.main  # noqa: F401
 
-HOST = "127.0.0.1"
-PORT = 8000
+def main():
+    url = "http://127.0.0.1:8000"
+    # Auto-open browser when running from .exe (frozen)
+    if getattr(sys, "frozen", False):
+        import threading
+        import webbrowser
+        print(f"Starting ScholarDesk at {url}")
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
-
-def _open_browser():
-    time.sleep(1.2)  # give uvicorn a moment to bind before we navigate to it
-    webbrowser.open(f"http://{HOST}:{PORT}")
-
+    kwargs = {
+        "host": "127.0.0.1",
+        "port": 8000,
+        "log_level": "info",
+        "reload": not getattr(sys, "frozen", False),
+    }
+    if getattr(sys, "frozen", False):
+        kwargs["log_config"] = None
+    uvicorn.run("app.main:app", **kwargs)
 
 if __name__ == "__main__":
-    threading.Thread(target=_open_browser, daemon=True).start()
-    uvicorn.run(app, host=HOST, port=PORT, reload=False, log_level="info")
+    main()
