@@ -1,0 +1,68 @@
+<div class="overflow-x-auto">
+    <table class="table-enterprise">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Rank</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if scholars %}
+            {% for s in scholars %}
+            <tr class="group hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-4">
+                    <a href="/scholars?scholar_id={{ s.id }}" class="font-semibold text-navy-900 hover:text-indigo-600 transition-colors">
+                        {{ s.name }}
+                    </a>
+                    {% if s.missing_requirements %}
+                    <span class="status-pill status-pending text-[10px] ml-2">Missing Requirements</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-slate-600">{{ enriched[s.id].rank }}</td>
+                <td class="py-3 px-4 text-slate-600">{{ enriched[s.id].dept }}</td>
+                <td class="py-3 px-4">
+                    {% if enriched[s.id].status != "—" %}
+                    <span class="status-pill status-{{ enriched[s.id].status|lower|replace(' ', '-') }}">{{ enriched[s.id].status }}</span>
+                    {% else %}
+                    <span class="text-slate-400 text-sm">—</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-right whitespace-nowrap">
+                    <a href="/scholars?scholar_id={{ s.id }}" class="btn btn-secondary btn-sm">View Profile</a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center py-12 text-slate-400">
+                    <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path></svg>
+                    No scholars found.
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="card-header border-t border-slate-100">
+    <div class="flex items-center justify-between w-full">
+        <span class="text-sm text-slate-500">Page {{ page }} of {{ total_pages }} · Showing {{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total]|min }} of {{ total }}</span>
+        <div class="flex items-center gap-2">
+            {% if page > 1 %}
+            <button class="btn btn-secondary btn-sm"
+                    hx-get="/dashboard" hx-target="#dashboard-content"
+                    hx-vals='{"page": {{ page - 1 }}, "q": "{{ q }}", "year": "{{ year or '' }}"}'>Previous</button>
+            {% endif %}
+            {% if page < total_pages %}
+            <button class="btn btn-secondary btn-sm"
+                    hx-get="/dashboard" hx-target="#dashboard-content"
+                    hx-vals='{"page": {{ page + 1 }}, "q": "{{ q }}", "year": "{{ year or '' }}"}'>Next</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
