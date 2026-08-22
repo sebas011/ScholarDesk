@@ -3,16 +3,27 @@ from datetime import date
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+import csv
+import io
+from datetime import datetime
 
 from app.database import get_db
 from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
+from sqlalchemy import or_
+from app.models import DepartmentAssignment, Grant, Scholar, ActivityLog
 from app.core.exceptions import (
     InvalidScholarError,
     ScholarNotFoundError,
 )
 from app.utils.dates import parse_date
+
+
+def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
+    db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
+
 
 def _parse_year(year: str | None) -> int | None:
     """Query params arrive as strings. The 'All Years' option in the
@@ -65,14 +76,79 @@ def home(request: Request, year: str | None = None, db: Session = Depends(get_db
     )
 
 
+def _enrich_scholars(db: Session, scholars: list):
+    """Attach primary assignment and latest grant status for each scholar.
+
+    Includes dept, rank, and status for the directory table.
+    """
+    scholar_ids = [s.id for s in scholars]
+    enriched = {s.id: {"dept": "—", "rank": "—", "status": "—"} for s in scholars}
+
+    if scholar_ids:
+        # Primary assignment = earliest id per scholar
+        assignments = (
+            db.query(DepartmentAssignment)
+            .filter(DepartmentAssignment.scholar_id.in_(scholar_ids))
+            .order_by(DepartmentAssignment.id)
+            .all()
+        )
+        seen = set()
+        for a in assignments:
+            if a.scholar_id not in seen:
+                enriched[a.scholar_id]["dept"] = a.department
+                enriched[a.scholar_id]["rank"] = a.rank or "—"
+                seen.add(a.scholar_id)
+
+        # Latest grant status = most recent start_year, then highest id
+        grants = (
+            db.query(Grant)
+            .filter(Grant.scholar_id.in_(scholar_ids))
+            .order_by(Grant.start_year.desc(), Grant.id.desc())
+            .all()
+        )
+        seen = set()
+        for g in grants:
+            if g.scholar_id not in seen:
+                enriched[g.scholar_id]["status"] = g.status
+                seen.add(g.scholar_id)
+
+    return enriched
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard_page(request: Request, db: Session = Depends(get_db)):
-    """Full data table: every scholar with every assignment and grant
-    they have, all on one page - unlike /scholars, this has no
-    pagination by design, since the point of this view is to see
-    everything at once (e.g. for exporting or a full manual review)."""
-    rows = scholar_service.get_full_scholar_data(db)
-    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows})
+def dashboard_page(
+    request: Request,
+    q: str | None = None,
+    year: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    db: Session = Depends(get_db),
+):
+    from app.services import stats as stats_service
+
+    parsed_year: int | None = _parse_year(year)
+    scholars, total = scholar_service.list_scholars(
+        db, search=q, year=parsed_year, limit=per_page, offset=(page - 1) * per_page
+    )
+
+    enriched = _enrich_scholars(db, scholars)
+    total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+
+    context = {
+        "scholars": scholars,
+        "total": total,
+        "q": q or "",
+        "year": parsed_year,
+        "available_years": stats_service.years_with_data(db),
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "enriched": enriched,
+    }
+
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/dashboard_content.html", context)
+    return templates.TemplateResponse(request, "dashboard.html", context)
 
 
 @router.get("/scholars", response_class=HTMLResponse)
@@ -83,6 +159,10 @@ def scholars_page(
     scholar_id: int | None = None,
     db: Session = Depends(get_db),
 ):
+    # If no query params, redirect to the new Directory
+    if not q and not year and not scholar_id:
+        return RedirectResponse(url="/dashboard", status_code=302)
+
     from app.services import stats as stats_service
 
     parsed_year: int | None = _parse_year(year)
@@ -90,13 +170,11 @@ def scholars_page(
         db, search=q, year=parsed_year, limit=100, offset=0
     )
 
-    # When arriving with ?scholar_id=, pre-render that scholar's detail
-    # panel instead of the default "New Scholar" form - used by links
-    # into this page from elsewhere (e.g. the Dashboard table), which
-    # can't target #scholar-detail via htmx the way in-page links do.
     detail_context = {"scholar": None, "error": None}
+    selected_id = None
     if scholar_id is not None:
         selected = scholar_service.get_scholar(db, scholar_id)
+        selected_id = scholar_id if selected else None
         detail_context = scholar_service.build_detail_context(
             db, selected, error=None if selected else "Scholar not found."
         )
@@ -113,6 +191,7 @@ def scholars_page(
             "offset": 0,
             "limit": 100,
             "detail_context": detail_context,
+            "selected_id": selected_id,
         },
     )
 
@@ -203,6 +282,7 @@ def create_scholar_page(
                 parse_date(date_started) or date.today(),
                 parse_date(date_ended),
             )
+        _log_activity(db, scholar.id, "scholar", f"Scholar '{scholar.name}' created")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
@@ -314,7 +394,7 @@ def create_scholar(
     )
 
 
-@router.post("/scholars/{scholar_id}", response_class=HTMLResponse)
+@router.put("/scholars/{scholar_id}", response_class=HTMLResponse)
 def update_scholar(
     request: Request,
     scholar_id: int,
@@ -333,6 +413,7 @@ def update_scholar(
             previous_degree=previous_degree,
             missing_requirements=missing_requirements,
         )
+        _log_activity(db, scholar_id, "scholar", f"Scholar '{scholar.name}' updated")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
@@ -354,15 +435,95 @@ def update_scholar(
 def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_db)):
     try:
         scholar_service.delete_scholar(db, scholar_id)
+        _log_activity(db, scholar_id, "scholar", "Scholar deleted")
         db.commit()
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
-        # Previously this fell straight through to the empty-panel return
-        # below even on failure, so a delete that didn't happen still
-        # looked like it had - re-render the (still-present) detail panel
-        # with the error instead of silently no-oping.
         scholar = scholar_service.get_scholar(db, scholar_id)
         context = scholar_service.build_detail_context(db, scholar, error=str(e))
         return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
-    # htmx swaps the detail panel to empty on delete
-    return HTMLResponse("", headers={"HX-Trigger": "scholar-changed"})
+    return templates.TemplateResponse(
+        request,
+        "partials/scholar_detail.html",
+        {"scholar": None, "error": None, "notice": "Scholar deleted."},
+        headers={"HX-Trigger": "scholar-changed"},
+    )
+
+@router.get("/dashboard/export")
+def dashboard_export(
+    request: Request,
+    q: str | None = None,
+    year: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Export one row per grant with scholar and primary assignment details.
+    Respects the same search and year filters as the dashboard."""
+
+    parsed_year: int | None = _parse_year(year)
+
+    # Query grants (not scholars) so every grant becomes a CSV row
+    query = db.query(Grant).join(Scholar).order_by(Scholar.name, Grant.id)
+
+    if q:
+        query = query.filter(Scholar.name.ilike(f"%{q}%"))
+
+    if parsed_year is not None:
+        query = query.filter(
+            Grant.start_year.isnot(None),
+            Grant.start_year <= parsed_year,
+            or_(Grant.end_year.is_(None), Grant.end_year >= parsed_year),
+        )
+
+    grants = query.all()
+
+    # Batch-load primary assignments
+    scholar_ids = list({g.scholar_id for g in grants})
+    assignments_by_scholar: dict[int, DepartmentAssignment] = {}
+    if scholar_ids:
+        assignments = (
+            db.query(DepartmentAssignment)
+            .filter(DepartmentAssignment.scholar_id.in_(scholar_ids))
+            .order_by(DepartmentAssignment.id)
+            .all()
+        )
+        for a in assignments:
+            if a.scholar_id not in assignments_by_scholar:
+                assignments_by_scholar[a.scholar_id] = a
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Name", "Rank", "Department", "Age", "Tenure", "Previous Degree",
+        "Program Applied", "Delivering HEI", "Type of Grant", "Date Started",
+        "Date Ended", "Extension", "Status", "Remarks",
+    ])
+
+    for g in grants:
+        s = g.scholar
+        a = assignments_by_scholar.get(s.id)
+        writer.writerow([
+            s.name,
+            a.rank if a else "",
+            a.department if a else "",
+            s.age or "",
+            a.tenure if a else "",
+            s.previous_degree or "",
+            g.program_applied,
+            g.delivering_hei or "",
+            g.type_of_grant or "",
+            g.date_started or "",
+            g.date_ended or "",
+            g.extension or "",
+            g.status,
+            g.remarks or "",
+        ])
+
+    output.seek(0)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"scholars_export_{date_str}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
