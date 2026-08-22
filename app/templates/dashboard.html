@@ -14,8 +14,21 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
             Add Scholar
         </a>
-    </div>
+        </div>
 </div>
+
+<form id="dashboard-filters" class="flex items-center gap-3 mb-4"
+      hx-get="/dashboard" hx-target="#dashboard-content"
+      hx-trigger="input changed delay:400ms from:[name='q'], change from:[name='year']">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search by name..."
+           class="form-input form-input-sm max-w-xs">
+    <select name="year" id="dash-year-filter" class="form-input form-input-sm form-select w-auto">
+        <option value="">All Years</option>
+        {% for y in available_years %}
+        <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+    </select>
+</form>
 
 <div id="dashboard-content">
 <div class="overflow-x-auto">
@@ -91,7 +104,7 @@
 // Sync export button href with live search/year filters
 document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target.id === 'dashboard-content') {
-        var q = document.querySelector('#dashboard-content [name="q"]')?.value || '';
+        var q = document.querySelector('#dashboard-filters [name="q"]')?.value || '';
         var year = document.querySelector('#dash-year-filter')?.value || '';
         var href = '/dashboard/export';
         var params = [];
