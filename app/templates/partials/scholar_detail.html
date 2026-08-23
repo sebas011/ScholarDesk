@@ -209,11 +209,117 @@
                 <div><label class="form-label">Extension</label><input name="extension" placeholder="e.g. 2 years, pending" class="form-input form-input-sm"></div>
                 <div class="col-span-3"><label class="form-label">Remarks</label><textarea name="remarks" rows="2" class="form-input form-input-sm"></textarea></div>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm mt-3">
+                    <button type="submit" class="btn btn-primary btn-sm mt-3">
                 <span class="btn-spinner"></span>
                 Add Grant
             </button>
         </form>
     </div>
 </div>
+
+<!-- Grant Governance (GMS) -->
+<div class="card mt-5">
+    <div class="card-header">
+        <h3 class="font-bold text-navy-900 flex items-center gap-2">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Grant Governance
+        </h3>
+    </div>
+    <div class="card-body">
+        {% for g in grants %}
+        <div class="border-b border-slate-100 last:border-0 py-3">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-sm text-navy-900">{{ g.program_applied }}</span>
+                {% set review = grant_reviews.get(g.id) %}
+                {% if review %}
+                <span class="status-pill status-{{ review.decision|lower|replace(' ', '-') }}">{{ review.decision }}</span>
+                {% else %}
+                <span class="status-pill status-neutral">No Review</span>
+                {% endif %}
+            </div>
+            {% if review and review.reviewer %}
+            <p class="text-xs text-slate-500 mb-1">Reviewer: {{ review.reviewer }} | {{ review.decided_at.strftime("%Y-%m-%d") if review.decided_at else "Pending" }}</p>
+            {% endif %}
+            {% if review and review.comments %}
+            <p class="text-sm text-slate-600 mb-2 italic">"{{ review.comments }}"</p>
+            {% endif %}
+            <form hx-post="/grants/{{ g.id }}/reviews?scholar_id={{ scholar.id }}" hx-target="#scholar-detail" class="flex gap-2 items-end flex-wrap">
+                <select name="decision" class="form-input form-input-sm form-select w-32">
+                    <option value="pending" {% if review and review.decision == "pending" %}selected{% endif %}>Pending</option>
+                    <option value="approved" {% if review and review.decision == "approved" %}selected{% endif %}>Approved</option>
+                    <option value="rejected" {% if review and review.decision == "rejected" %}selected{% endif %}>Rejected</option>
+                    <option value="deferred" {% if review and review.decision == "deferred" %}selected{% endif %}>Deferred</option>
+                </select>
+                <input name="reviewer" value="{{ review.reviewer if review else '' }}" placeholder="Reviewer name" class="form-input form-input-sm w-36">
+                <input name="comments" value="{{ review.comments if review else '' }}" placeholder="Comments" class="form-input form-input-sm flex-1 min-w-[120px]">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="btn-spinner"></span>
+                    {% if review %}Update{% else %}Review{% endif %}
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-400 text-center py-4">No grants to review.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Activity & Notes (XRM) -->
+<div class="card mt-5">
+    <div class="card-header">
+        <h3 class="font-bold text-navy-900 flex items-center gap-2">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Activity & Notes
+        </h3>
+    </div>
+    <div class="card-body">
+                {% if activity_logs %}
+        <div class="space-y-3 mb-5">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recent Activity</h4>
+            {% for log in activity_logs %}
+            <div class="flex gap-3">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 mt-1.5 flex-shrink-0"></div>
+                <div>
+                    <p class="text-sm text-slate-700">{{ log.description }}</p>
+                    <p class="text-xs text-slate-400">{{ log.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 mb-4">
+            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <p class="text-sm text-slate-400">No activity yet — actions will appear here automatically.</p>
+        </div>
+        {% endif %}
+
+        {% if notes %}
+        <div class="mb-4">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Notes</h4>
+            {% for note in notes %}
+            <div class="bg-slate-50 rounded-lg p-3 mb-2">
+                <p class="text-sm text-slate-700">{{ note.content }}</p>
+                <div class="flex justify-between items-center mt-1">
+                    <span class="text-xs text-slate-400">{{ note.created_at.strftime("%Y-%m-%d") }}</span>
+                    <button type="button" class="btn btn-ghost btn-sm text-red-600 hover:text-red-700 hover:bg-red-50"
+                            hx-delete="/scholars/{{ scholar.id }}/notes/{{ note.id }}"
+                            hx-target="#scholar-detail"
+                            hx-confirm="Delete this note?">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form hx-post="/scholars/{{ scholar.id }}/notes" hx-target="#scholar-detail" class="border-t border-slate-100 pt-3">
+            <label class="form-label">Add Note</label>
+            <textarea name="content" rows="2" class="form-input" placeholder="Write something about this scholar..."></textarea>
+            <button type="submit" class="btn btn-primary btn-sm mt-2">
+                <span class="btn-spinner"></span>
+                Save Note
+            </button>
+        </form>
+    </div>
+</div>
+
 {% endif %}
