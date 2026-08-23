@@ -263,3 +263,35 @@ def test_dashboard_page_loads_with_data(client):
     assert resp.status_code == 200
     assert "Dashboard Test Scholar" in resp.text
     assert "CAS" in resp.text
+
+def test_scholar_detail_page_with_grants_renders_without_context_forwarding_crash(client):
+    """Regression test: build_detail_context() started returning three
+    new keys (notes, activity_logs, grant_reviews) for the GMS/XRM
+    features, but scholars.html's {% with %} block that forwards
+    context into scholar_detail.html wasn't updated to pass them
+    through - any scholar-with-grants page reached via the Directory
+    table (?scholar_id=) crashed with UndefinedError: 'grant_reviews'
+    is undefined."""
+    client.post("/scholars", data={"name": "Context Forward Scholar", "department": "CCS"})
+    client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "Context Test Grant", "start_year": "2024"},
+    )
+    resp = client.get("/scholars", params={"scholar_id": 1})
+    assert resp.status_code == 200
+    assert "Context Test Grant" in resp.text
+    assert "Grant Governance" in resp.text
+
+
+def test_dashboard_htmx_partial_renders_without_dept_by_scholar_crash(client):
+    """Regression test: dashboard_content.html (the htmx-swapped partial
+    used for pagination/search) referenced dept_by_scholar, a variable
+    dashboard_page() never provided - any htmx GET to /dashboard (e.g.
+    clicking Next/Previous, or typing a search term) 500'd with
+    UndefinedError. The full-page load (dashboard.html) used a
+    different, working variable (enriched) and so never caught this."""
+    client.post("/scholars", data={"name": "Dashboard Partial Scholar", "department": "CIT"})
+    resp = client.get("/dashboard", headers={"HX-Request": "true"})
+    assert resp.status_code == 200
+    assert "Dashboard Partial Scholar" in resp.text
+    assert "CIT" in resp.text
