@@ -85,21 +85,30 @@ def total_scholars_active_in_year(db: Session, year: int) -> int:
 
 def years_with_data(db: Session) -> list[int]:
     """Every year touched by any assignment or grant's start/end range,
-    used to populate the year-filter dropdown so it only ever shows
-    years that actually have something in them.
+    used to populate the year-filter dropdown. Years are clamped to a
+    reasonable window to prevent garbage data (e.g. 1900-2100) from
+    creating an unusable dropdown."""
+    from datetime import date
 
-    Grants use start_year/end_year (plain integers) rather than
-    date_started/date_ended, which are free text now - see
-    app/models.py for why the two are kept separate."""
+    current_year = date.today().year
+    min_year = current_year - 50
+    max_year = current_year + 5
+
     years: set[int] = set()
     for a in db.query(DepartmentAssignment).all():
         if a.date_started:
             end_year = a.date_ended.year if a.date_ended else a.date_started.year
-            years.update(range(a.date_started.year, end_year + 1))
+            start = max(a.date_started.year, min_year)
+            end = min(end_year, max_year)
+            if start <= end:
+                years.update(range(start, end + 1))
     for g in db.query(Grant).all():
         if g.start_year:
             end_year = g.end_year if g.end_year else g.start_year
-            years.update(range(g.start_year, end_year + 1))
+            start = max(g.start_year, min_year)
+            end = min(end_year, max_year)
+            if start <= end:
+                years.update(range(start, end + 1))
     return sorted(years, reverse=True)
 
 
@@ -145,9 +154,17 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
             dept_key = OTHER_LABEL
         counts[dept_key] = counts.get(dept_key, 0) + 1
 
-    if year is None:
-        unassigned = total_scholars(db) - len(assigned_scholar_ids)
-        if unassigned > 0:
-            counts[OTHER_LABEL] = counts.get(OTHER_LABEL, 0) + unassigned
+    # Whichever headline total index.html is showing (all-time count, or
+    # count active in the selected year) should always equal the sum of
+    # this table - otherwise a scholar counted as "active" up top can
+    # silently vanish from the breakdown below with no row explaining
+    # why, if their only activity that year was a grant, not an
+    # assignment.
+    total_for_bucket = (
+        total_scholars(db) if year is None else total_scholars_active_in_year(db, year)
+    )
+    unassigned = total_for_bucket - len(assigned_scholar_ids)
+    if unassigned > 0:
+        counts[OTHER_LABEL] = counts.get(OTHER_LABEL, 0) + unassigned
 
     return dict(sorted(counts.items(), key=lambda kv: -kv[1]))

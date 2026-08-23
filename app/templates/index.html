@@ -1,53 +1,98 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
-    <h1 style="margin:0;">Home</h1>
-    <div style="display:flex; align-items:center; gap:16px;">
-        <a href="/scholars" style="text-decoration:none;"><button type="button">+ Add Scholar</button></a>
-        <form method="get" action="/" style="display:flex; align-items:center; gap:8px; margin:0;">
-        <label style="margin:0; text-transform:none; font-size:13px; font-weight:600; color:#555;">School year</label>
-        <select name="year" onchange="this.form.submit()" style="width:auto; margin:0; min-width:140px;">
-            <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
-            {% for y in available_years %}
-            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-        </select>
-        </form>
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-navy-900">Home</h1>
+        <p class="text-sm text-slate-500 mt-1">Overview of scholars, grants, and department distribution.</p>
     </div>
+    <a href="/scholars/new" class="btn btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    Add Scholar
+</a>
 </div>
+
 {% if not available_years %}
-<div class="card" style="background:#fafbfc; color:#888; font-size:13px; box-shadow:none;">
-    No dated grants or assignments yet - add some to enable year filtering.
+<div class="card p-8 text-center text-slate-500 text-sm border-dashed bg-slate-50/50">
+    <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+    No dated grants or assignments yet — add some to enable year filtering.
 </div>
 {% endif %}
 
-<div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-    <div class="stat-box">
-        <div class="num">{{ total_scholars }}</div>
-        {% if selected_year %}Scholars active in {{ selected_year }}{% else %}Total Scholars{% endif %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        </div>
+        <div>
+            <div class="text-3xl font-bold text-navy-900">{{ total_scholars }}</div>
+            <div class="text-sm text-slate-500">{% if selected_year %}Active in {{ selected_year }}{% else %}Total Scholars{% endif %}</div>
+        </div>
     </div>
-    <div class="stat-box">
-        <div class="num">{{ total_grants }}</div>
-        {% if selected_year %}Grants in {{ selected_year }}{% else %}Total Grants{% endif %}
+    <div class="card p-5 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        </div>
+        <div>
+            <div class="text-3xl font-bold text-navy-900">{{ total_grants }}</div>
+            <div class="text-sm text-slate-500">{% if selected_year %}Grants in {{ selected_year }}{% else %}Total Grants{% endif %}</div>
+        </div>
     </div>
-    <div class="stat-box">
-        <div class="num">{{ active_grants }}</div>
-        Active Grants{% if selected_year %} ({{ selected_year }}){% endif %}
+    <div class="card p-5 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <div>
+            <div class="text-3xl font-bold text-navy-900">{{ active_grants }}</div>
+            <div class="text-sm text-slate-500">Active Grants{% if selected_year %} ({{ selected_year }}){% endif %}</div>
+        </div>
     </div>
 </div>
 
-<div class="card">
-    <h3>Scholars by Department {% if selected_year %}<span style="color:#888; font-weight:400;">({{ selected_year }})</span>{% endif %}</h3>
-    <table>
-        <tr><th>Department</th><th style="text-align:right;">Scholars</th></tr>
-        {% for dept, count in dept_distribution.items() %}
-        <tr>
-            <td>{{ dept }}</td>
-            <td style="text-align:right; font-weight:600;">{{ count }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="2" style="color:#888; text-align:center; padding:20px;">No data for this year.</td></tr>
-        {% endfor %}
-    </table>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 card">
+        <div class="card-header">
+            <h3 class="font-bold text-navy-900">Scholars by Department</h3>
+            {% if selected_year %}
+            <span class="text-sm text-slate-500 font-medium">{{ selected_year }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <table class="table-enterprise">
+                <thead><tr><th>Department</th><th class="text-right">Scholars</th></tr></thead>
+                <tbody>
+                    {% for dept, count in dept_distribution.items() %}
+                    <tr>
+                        <td class="font-medium text-slate-700">{{ dept }}</td>
+                        <td class="text-right font-bold text-navy-900">{{ count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="2" class="text-center text-slate-400 py-8">No data for this year.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card h-fit">
+        <div class="card-header">
+            <h3 class="font-bold text-navy-900">Filter</h3>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/" class="space-y-3">
+                <div>
+                    <label class="form-label">School Year</label>
+                    <select name="year" onchange="this.form.submit()" class="form-input form-select">
+                        <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
+                        {% for y in available_years %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if selected_year %}
+                <a href="/" class="btn btn-secondary w-full btn-sm">Clear Filter</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

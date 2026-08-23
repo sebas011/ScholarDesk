@@ -1,31 +1,35 @@
 {% if not append %}
 {% for s in scholars %}
-<li>
+<li class="{% if selected_id == s.id %}active{% endif %}">
     <a href="#" hx-get="/scholars/{{ s.id }}" hx-target="#scholar-detail">
-        {{ s.name }}
+        <div class="scholar-avatar">{{ s.name[:2]|upper }}</div>
+        <span class="truncate">{{ s.name }}</span>
     </a>
 </li>
 {% else %}
-<li style="padding:8px; color:#888;">No scholars found.</li>
+<li class="px-3 py-8 text-center text-slate-400 text-sm">
+    <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    No scholars found.
+</li>
 {% endfor %}
 {% else %}
-{# Load More: htmx hx-swap="beforeend" appends just these <li> elements #}
 {% for s in scholars %}
-<li>
+<li class="{% if selected_id == s.id %}active{% endif %}">
     <a href="#" hx-get="/scholars/{{ s.id }}" hx-target="#scholar-detail">
-        {{ s.name }}
+        <div class="scholar-avatar">{{ s.name[:2]|upper }}</div>
+        <span class="truncate">{{ s.name }}</span>
     </a>
 </li>
 {% endfor %}
 {% endif %}
 
 {% if offset + scholars|length < total %}
-<li id="load-more-row" style="list-style:none; padding:6px 0;">
-    <button type="button" class="secondary" style="width:100%; font-size:12px;"
+<li id="load-more-row" class="px-3 pt-2">
+    <button type="button" class="btn btn-secondary w-full btn-sm"
             hx-get="/scholars/list" hx-include="[name='q'], #year-filter"
-            hx-vals='{"offset": {{ offset + limit }}, "limit": {{ limit }}}'
+            hx-vals='{"offset": {{ offset + limit }}, "limit": {{ limit }}, "selected_id": {{ selected_id or "null" }}}'
             hx-target="#load-more-row" hx-swap="outerHTML">
-        Load more ({{ total - offset - scholars|length }} remaining)
+        Load more <span class="text-slate-400 font-normal">({{ total - offset - scholars|length }})</span>
     </button>
 </li>
 {% endif %}

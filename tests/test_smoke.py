@@ -51,7 +51,7 @@ def client():
 def test_home_starts_empty(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert '<div class="num">0</div>' in resp.text
+    assert '<div class="text-3xl font-bold text-navy-900">0</div>' in resp.text
 
 
 def test_empty_year_param_does_not_422(client):
@@ -122,13 +122,13 @@ def test_delete_scholar_cascades_to_assignments_and_grants(client):
     )
 
     dash = client.get("/")
-    assert '<div class="num">1</div>' in dash.text
+    assert '<div class="text-3xl font-bold text-navy-900">1</div>' in dash.text
 
     del_resp = client.delete("/scholars/1")
     assert del_resp.status_code == 200
 
     dash_after = client.get("/")
-    assert '<div class="num">0</div>' in dash_after.text
+    assert '<div class="text-3xl font-bold text-navy-900">0</div>' in dash_after.text
 
 
 def test_delete_nonexistent_scholar_reports_error_not_silent_success(client):
@@ -147,7 +147,7 @@ def test_update_scholar_with_whitespace_only_name_shows_error_not_500(client):
     ValueError for this, which the route's except clause didn't catch,
     causing an uncaught 500 instead of the intended inline error."""
     client.post("/scholars", data={"name": "Real Name", "department": "CCS"})
-    resp = client.post("/scholars/1", data={"name": "   "})
+    resp = client.put("/scholars/1", data={"name": "   "})
     assert resp.status_code == 200
     assert "required" in resp.text.lower()
 
@@ -263,3 +263,97 @@ def test_dashboard_page_loads_with_data(client):
     assert resp.status_code == 200
     assert "Dashboard Test Scholar" in resp.text
     assert "CAS" in resp.text
+
+def test_scholar_detail_page_with_grants_renders_without_context_forwarding_crash(client):
+    """Regression test: build_detail_context() started returning three
+    new keys (notes, activity_logs, grant_reviews) for the GMS/XRM
+    features, but scholars.html's {% with %} block that forwards
+    context into scholar_detail.html wasn't updated to pass them
+    through - any scholar-with-grants page reached via the Directory
+    table (?scholar_id=) crashed with UndefinedError: 'grant_reviews'
+    is undefined."""
+    client.post("/scholars", data={"name": "Context Forward Scholar", "department": "CCS"})
+    client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "Context Test Grant", "start_year": "2024"},
+    )
+    resp = client.get("/scholars", params={"scholar_id": 1})
+    assert resp.status_code == 200
+    assert "Context Test Grant" in resp.text
+    assert "Grant Governance" in resp.text
+
+
+def test_dashboard_htmx_partial_renders_without_dept_by_scholar_crash(client):
+    """Regression test: dashboard_content.html (the htmx-swapped partial
+    used for pagination/search) referenced dept_by_scholar, a variable
+    dashboard_page() never provided - any htmx GET to /dashboard (e.g.
+    clicking Next/Previous, or typing a search term) 500'd with
+    UndefinedError. The full-page load (dashboard.html) used a
+    different, working variable (enriched) and so never caught this."""
+    client.post("/scholars", data={"name": "Dashboard Partial Scholar", "department": "CIT"})
+    resp = client.get("/dashboard", headers={"HX-Request": "true"})
+    assert resp.status_code == 200
+    assert "Dashboard Partial Scholar" in resp.text
+    assert "CIT" in resp.text
+
+def test_delete_nonexistent_note_shows_error_not_silent_success(client):
+    """Regression test: delete_scholar_note only acted (db.delete + commit)
+    inside `if note and note.scholar_id == scholar_id`, but returned the
+    same 'Note deleted.' success notice unconditionally afterward - a
+    missing note_id, or one belonging to a different scholar, silently
+    did nothing while reporting success. Also confirms a real delete
+    still works, so the fix doesn't just report errors for everything."""
+    client.post("/scholars", data={"name": "Note Delete Scholar"})
+
+    missing_resp = client.delete("/scholars/1/notes/999")
+    assert missing_resp.status_code == 200
+    assert "not found" in missing_resp.text.lower()
+
+    client.post("/scholars/1/notes", data={"content": "A real note"})
+
+    from app.models import ScholarNote
+
+    db = TestSession()
+    real_note = db.query(ScholarNote).filter_by(scholar_id=1).first()
+    note_id = real_note.id
+    db.close()
+
+    real_delete_resp = client.delete(f"/scholars/1/notes/{note_id}")
+    assert real_delete_resp.status_code == 200
+    assert "note deleted" in real_delete_resp.text.lower()
+
+    db = TestSession()
+    assert db.get(ScholarNote, note_id) is None
+    db.close()
+
+def test_department_distribution_includes_grant_only_scholars_in_year_filter(client):
+    """Regression test: department_distribution's year-filtered branch only
+    counted scholars with a DEPARTMENT ASSIGNMENT active in that year,
+    silently excluding scholars who are active that year purely via a
+    grant (no assignment) - unlike the all-time branch, which already
+    buckets any scholar with no assignment under 'Admin Staff'. Result:
+    the home page's 'Active in <year>' stat card and the department
+    breakdown table below it could show different totals, with no row
+    explaining the gap."""
+    from app.services import stats as stats_service
+
+    client.post(
+        "/scholars",
+        data={"name": "Assignment Scholar", "department": "CCS", "date_started": "2024-01-01"},
+    )
+    client.post("/scholars", data={"name": "Grant Only Scholar"})
+    client.post(
+        "/scholars/2/grants",
+        data={"program_applied": "Grant Only", "start_year": "2024"},
+    )
+    # Scholar 1: assignment dated into 2024. Scholar 2: no department
+    # assignment at all - active in 2024 purely through the grant above.
+
+    db = TestSession()
+    headline = stats_service.total_scholars_active_in_year(db, 2024)
+    dist = stats_service.department_distribution(db, year=2024)
+    db.close()
+
+    assert headline == 2
+    assert sum(dist.values()) == headline
+    assert dist.get("Admin Staff") == 1
