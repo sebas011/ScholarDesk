@@ -27,7 +27,7 @@
 <li id="load-more-row" class="px-3 pt-2">
     <button type="button" class="btn btn-secondary w-full btn-sm"
             hx-get="/scholars/list" hx-include="[name='q'], #year-filter"
-            hx-vals='{"offset": {{ offset + limit }}, "limit": {{ limit }}}'
+            hx-vals='{"offset": {{ offset + limit }}, "limit": {{ limit }}, "selected_id": {{ selected_id or "null" }}}'
             hx-target="#load-more-row" hx-swap="outerHTML">
         Load more <span class="text-slate-400 font-normal">({{ total - offset - scholars|length }})</span>
     </button>

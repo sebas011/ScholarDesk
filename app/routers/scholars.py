@@ -203,10 +203,18 @@ def scholars_list_partial(
     year: str | None = None,
     offset: int = 0,
     limit: int = 100,
+    selected_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """htmx endpoint: re-renders the <ul> (or appends to it, for Load More)
-    as the user types in search, changes the year filter, or paginates."""
+    as the user types in search, changes the year filter, or paginates.
+
+    selected_id (optional) is the scholar currently shown in the detail
+    panel at the time the sidebar was last rendered - threaded through
+    so the "active" highlight survives a list refresh instead of
+    disappearing every time this endpoint's own response replaces the
+    <li> elements. Reflects state as of the last full page load, not
+    necessarily whatever the user has clicked since (see scholars.html)."""
     parsed_year: int | None = _parse_year(year)
     scholars, total = scholar_service.list_scholars(
         db, search=q, year=parsed_year, limit=limit, offset=offset
@@ -224,6 +232,7 @@ def scholars_list_partial(
             "next_offset": offset + limit,
             "has_more": offset + len(scholars) < total,
             "append": offset > 0,  # Load More appends instead of replacing
+            "selected_id": selected_id,
         },
     )
 
