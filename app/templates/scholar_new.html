@@ -1,35 +1,75 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Add Scholar</h1>
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+        </div>
+        <h1 class="text-2xl font-bold text-navy-900">Add Scholar</h1>
+    </div>
 
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if error %}
+    <div class="alert alert-error mb-5">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        {{ error }}
+    </div>
+    {% endif %}
 
-<div class="card" style="max-width:700px;">
-    <form method="post" action="/scholars/new">
-        <label>Name *</label>
-        <input name="name" value="{{ form.name or '' }}" required>
-        <label>Age</label>
-        <input name="age" type="number" value="{{ form.age or '' }}">
-        <label>Previous Degree</label>
-        <input name="previous_degree" value="{{ form.previous_degree or '' }}">
-        <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-size:13px; margin-top:14px;">
-            <input type="checkbox" name="missing_requirements" value="true" style="width:auto; margin:0;"> Missing Requirements
-        </label>
+    <form method="post" action="/scholars/new" class="space-y-5">
+        <div class="card p-5">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Personal Information</h4>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="form-label">Full Name *</label>
+                    <input name="name" value="{{ form.name or '' }}" required class="form-input" placeholder="e.g. Maria Santos">
+                </div>
+                <div>
+                    <label class="form-label">Age</label>
+                    <input name="age" type="number" value="{{ form.age or '' }}" class="form-input" placeholder="e.g. 28">
+                </div>
+                <div>
+                    <label class="form-label">Previous Degree</label>
+                    <input name="previous_degree" value="{{ form.previous_degree or '' }}" class="form-input" placeholder="e.g. BS Computer Science">
+                </div>
+            </div>
+            <label class="flex items-center gap-2 mt-4 cursor-pointer">
+                <input type="checkbox" name="missing_requirements" value="true" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm text-slate-700 font-medium">Missing Requirements</span>
+            </label>
+        </div>
 
-        <h4>Initial Department Assignment (optional)</h4>
-        <label>Department</label>
-        <input name="department" value="{{ form.department or '' }}">
-        <label>Rank</label>
-        <input name="rank" value="{{ form.rank or '' }}">
-        <label>Tenure</label>
-        <input name="tenure" value="{{ form.tenure or '' }}">
-        <label>Started</label>
-        <input name="date_started" type="date">
-        <label>Ended</label>
-        <input name="date_ended" type="date">
+        <div class="card p-5">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Initial Department Assignment <span class="text-slate-400 font-normal normal-case">(Optional)</span></h4>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="form-label">Department</label>
+                    <input name="department" value="{{ form.department or '' }}" class="form-input" placeholder="e.g. CCS">
+                </div>
+                <div>
+                    <label class="form-label">Rank</label>
+                    <input name="rank" value="{{ form.rank or '' }}" class="form-input" placeholder="e.g. Instructor I">
+                </div>
+                <div>
+                    <label class="form-label">Tenure</label>
+                    <input name="tenure" value="{{ form.tenure or '' }}" class="form-input" placeholder="e.g. Permanent">
+                </div>
+                <div>
+                    <label class="form-label">Date Started</label>
+                    <input name="date_started" type="date" class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Date Ended</label>
+                    <input name="date_ended" type="date" class="form-input">
+                </div>
+            </div>
+        </div>
 
-        <div class="row-actions">
-            <button type="submit">Add Scholar</button>
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-spinner"></span>
+                Add Scholar
+            </button>
+            <a href="/scholars" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>

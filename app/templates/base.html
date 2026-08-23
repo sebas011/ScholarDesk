@@ -2,180 +2,176 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Grant Tracking System</title>
-    <script
-        src="https://unpkg.com/htmx.org@1.9.12"
-        integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
-        crossorigin="anonymous"
-    ></script>
-<style>
-        :root {
-            --accent: #2d5f8a;
-            --accent-dark: #1e2327;
-            --border: #e3e6ea;
-            --text-muted: #6b7280;
-            --bg: #f7f8fa;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScholarDesk — Grant & Scholar Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { 800: '#1e2327', 900: '#0f172a' },
+                        accent: { DEFAULT: '#2d5f8a', dark: '#1e4a6e' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
         }
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: #1e2327;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-        }
-        header {
-            background: var(--accent-dark);
-            color: white;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-        }
-        header a {
-            color: rgba(255,255,255,0.85);
-            text-decoration: none;
-            margin-right: 24px;
-            font-weight: 600;
-            font-size: 14px;
-            transition: color 0.15s;
-        }
-        header a:hover { color: white; }
-        main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
-        h1 { font-size: 22px; font-weight: 700; margin: 0 0 20px; }
-        h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
-        h3 { font-size: 15px; font-weight: 700; margin: 0 0 12px; color: var(--accent-dark); }
-        h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin: 20px 0 10px; }
-        .card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 1px 2px rgba(16,24,40,0.04);
-            margin-bottom: 16px;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 8px 10px;
-            margin-bottom: 10px;
-            border: 1px solid #d3d8de;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 14px;
-            font-family: inherit;
-            transition: border-color 0.15s, box-shadow 0.15s;
-        }
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(45,95,138,0.12);
-        }
-        label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.02em; }
-        button {
-            background: var(--accent-dark);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background 0.15s, transform 0.05s;
-        }
-        button:hover { background: #30363c; }
-        button:active { transform: translateY(1px); }
-        button.htmx-request, button.htmx-request:hover {
-            opacity: 0.6;
-            cursor: wait;
-        }
-        button.htmx-request::after {
-            content: "";
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            margin-left: 6px;
-            border: 2px solid rgba(255,255,255,0.5);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: htmx-spin 0.6s linear infinite;
-            vertical-align: middle;
-        }
-        @keyframes htmx-spin {
-            to { transform: rotate(360deg); }
-        }
-        button.secondary { background: #eceef1; color: #333; }
-        button.secondary:hover { background: #e0e3e7; }
-        button.danger { background: #c0392b; }
-        button.danger:hover { background: #a93226; }
-        .error { color: #c0392b; background: #fdecea; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #f5c6c0; }
-        .notice { color: #1a7f37; background: #e9f9ee; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #bfe8cc; }
-        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
-        ul.scholar-list { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; }
-        ul.scholar-list li a { display: block; padding: 9px 10px; border-radius: 6px; text-decoration: none; color: #222; font-size: 14px; transition: background 0.1s; }
-        ul.scholar-list li a:hover { background: var(--bg); }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { text-align: left; padding: 8px; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 2px solid var(--border); }
-        td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
-        tr:hover td { background: var(--bg); }
-        .row-actions { display: flex; gap: 8px; margin-top: 12px; }
-        .btn-sm { padding: 3px 8px; font-size: 12px; }
-        .stacked-item { padding: 3px 0; }
-        .stacked-item:not(:last-child) { border-bottom: 1px dashed var(--border); }
-        .section-divider { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
-        .subform-divider { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
-        .text-muted { color: var(--text-muted); }
-        .text-muted-sm { color: var(--text-muted); font-size: 11px; }
-        .stat-box {
-            display: inline-block;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 18px 26px;
-            margin-right: 12px;
-            box-shadow: 0 1px 2px rgba(16,24,40,0.04);
-        }
-        .stat-box .num { font-size: 30px; font-weight: 700; color: var(--accent-dark); line-height: 1.1; }
-        /* Status pill styles (replace your existing status-pill block with this) */
-.status-pill {
-    display: inline-block;
-    padding: 4px 10px;                 /* slightly wider for small text */
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #ffffff;
-    line-height: 1;
-    white-space: nowrap;
-    vertical-align: middle;
-    text-transform: none;              /* preserve original casing */
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
-}
-
-/* Color classes (status-<lowercase-with-hyphens>) */
-.status-active     { background: #0EA5A4; }  /* teal */
-.status-pending    { background: #F59E0B; }  /* amber */
-.status-completed  { background: #10B981; }  /* green */
-.status-awarded    { background: #10B981; }  /* green alias */
-.status-cancelled  { background: #9CA3AF; }  /* gray */
-.status-on-hold    { background: #F59E0B; }  /* amber */
-.status-withdrawn  { background: #EF4444; }  /* red */
-.status-neutral    { background: #9CA3AF; }  /* fallback gray */
-
-/* Accessibility: ensure focusable pills (if ever interactive) show outline */
-.status-pill:focus {
-    outline: 3px solid rgba(45,95,138,0.18);
-    outline-offset: 2px;
-}
-
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f1f5f9; color: #0f172a; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+        
+        /* HTMX swap animations */
+        .htmx-added { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Enterprise Table */
+        .table-enterprise { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+        .table-enterprise th { position: sticky; top: 0; z-index: 10; background: #f8fafc; text-align: left; padding: 10px 12px; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        .table-enterprise td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; transition: background-color 0.1s; }
+        .table-enterprise tbody tr:hover td { background: #f8fafc; }
+        .table-enterprise tbody tr:nth-child(even) td { background: #fafbfc; }
+        .table-enterprise tbody tr:nth-child(even):hover td { background: #f1f5f9; }
+        
+        /* Forms */
+        .form-input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; background: white; transition: all 0.15s; }
+        .form-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+        .form-input-sm { padding: 5px 8px; font-size: 13px; }
+        .form-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.02em; }
+        .form-select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 8px center; background-repeat: no-repeat; background-size: 16px; padding-right: 32px; }
+        
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; line-height: 1; }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: #4f46e5; color: white; }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-secondary { background: #f1f5f9; color: #374151; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-ghost { background: transparent; color: #64748b; }
+        .btn-ghost:hover { background: #f1f5f9; color: #374151; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        
+        /* Button spinner */
+        .btn-spinner { display: none; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .btn-secondary .btn-spinner { border-color: rgba(0,0,0,0.15); border-top-color: #374151; }
+        .htmx-request .btn-spinner, .btn.htmx-request .btn-spinner { display: inline-block !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Status pills */
+        .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; }
+        .status-pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-completed, .status-awarded { background: #dbeafe; color: #1e40af; }
+        .status-cancelled, .status-neutral { background: #f3f4f6; color: #4b5563; }
+        .status-on-hold { background: #ffedd5; color: #9a3412; }
+        .status-withdrawn, .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-deferred { background: #e0e7ff; color: #3730a3; }
+        
+        /* Cards */
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+        .card-body { padding: 20px; }
+        
+        /* Alerts */
+        .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+        
+        /* Layout */
+        .layout-sidebar { display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: calc(100vh - 72px); }
+        
+        /* Scholar list */
+        .scholar-list { list-style: none; padding: 0; margin: 0; }
+        .scholar-list li a { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 6px; text-decoration: none; color: #374151; font-size: 14px; font-weight: 500; transition: all 0.1s; border: 1px solid transparent; margin: 0 4px; }
+        .scholar-list li a:hover { background: #f8fafc; border-color: #e2e8f0; }
+        .scholar-list li.active a { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
+        .scholar-avatar { width: 28px; height: 28px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+        .scholar-list li.active .scholar-avatar { background: #4f46e5; color: white; }
+        
+        /* Utilities */
+        .text-muted { color: #64748b; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        /* Global progress bar */
+        #htmx-progress { position: fixed; top: 0; left: 0; height: 2px; background: #4f46e5; z-index: 9999; width: 0%; transition: width 0.3s ease; opacity: 0; }
+        #htmx-progress.htmx-request { width: 70%; opacity: 1; }
+        #htmx-progress.htmx-settling { width: 100%; opacity: 1; }
     </style>
 </head>
-<body>
-<header>
-    <a href="/">Home</a>
-    <a href="/scholars">Scholars</a>
-    <a href="/dashboard">Dashboard</a>
-</header>
-<main>
-    {% block content %}{% endblock %}
-</main>
+<body class="min-h-screen">
+    <div id="htmx-progress" class="htmx-indicator"></div>
+    
+    <header class="bg-navy-900 text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-[1400px] mx-auto px-6 h-[56px] flex items-center gap-8">
+            <a href="/" class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                ScholarDesk
+            </a>
+            <nav class="flex items-center gap-1">
+    <a href="/" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/' %}bg-white/10 text-white{% endif %}">Home</a>
+    <a href="/dashboard" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/dashboard' %}bg-white/10 text-white{% endif %}">Directory</a>
+</nav>
+        </div>
+    </header>
+    
+    <main class="max-w-[1400px] mx-auto px-6 py-5">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Global HTMX progress bar
+        document.body.addEventListener('htmx:beforeRequest', function() {
+            document.getElementById('htmx-progress').classList.add('htmx-request');
+        });
+        document.body.addEventListener('htmx:afterRequest', function() {
+            var p = document.getElementById('htmx-progress');
+            p.classList.remove('htmx-request');
+            p.classList.add('htmx-settling');
+            setTimeout(function() { p.classList.remove('htmx-settling'); }, 200);
+        });
+        
+        // Preserve scroll position in scholar detail panel across HTMX swaps
+        var detailScroll = 0;
+        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+            var detail = document.getElementById('scholar-detail');
+            if (detail) detailScroll = detail.scrollTop;
+        });
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            var detail = document.getElementById('scholar-detail');
+            if (detail) detail.scrollTop = detailScroll;
+        });
+        
+        // Highlight clicked scholar in sidebar immediately (client-side)
+        document.body.addEventListener('click', function(e) {
+            var link = e.target.closest('.scholar-list a');
+            if (!link) return;
+            document.querySelectorAll('.scholar-list li').forEach(function(li) { li.classList.remove('active'); });
+            link.closest('li').classList.add('active');
+        });
+
+        // Ctrl+K to focus search
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            var search = document.querySelector('input[type="search"]');
+            if (search) search.focus();
+        }
+        });
+    </script>
 </body>
 </html>
