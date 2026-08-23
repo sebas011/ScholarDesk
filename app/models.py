@@ -5,9 +5,9 @@ DepartmentAssignment now carries date_started/date_ended - the field the
 VBA version was missing, which is why "which year is this assignment
 active in" was never answerable there.
 """
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import String, Integer, Boolean, Date, ForeignKey, Text
+from sqlalchemy import String, Integer, Boolean, Date, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -27,6 +27,18 @@ class Scholar(Base):
     )
     grants: Mapped[list["Grant"]] = relationship(
         back_populates="scholar", cascade="all, delete-orphan", order_by="Grant.id"
+    )
+    # No cascade here on purpose. ActivityLog is meant to survive a
+    # scholar's deletion as an audit trail (the FK below already uses
+    # ondelete="SET NULL" for exactly this reason) - "all, delete-orphan"
+    # would make SQLAlchemy delete these rows itself before the database's
+    # SET NULL constraint ever gets a chance to run, silently destroying
+    # the audit history the whole table exists to preserve.
+    activity_logs: Mapped[list["ActivityLog"]] = relationship(
+        back_populates="scholar", order_by="ActivityLog.id.desc()"
+    )
+    notes: Mapped[list["ScholarNote"]] = relationship(
+        back_populates="scholar", cascade="all, delete-orphan", order_by="ScholarNote.id.desc()"
     )
 
 
@@ -52,7 +64,6 @@ class DepartmentAssignment(Base):
 
 class Grant(Base):
     __tablename__ = "grants"
-
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
         ForeignKey("scholars.id", ondelete="CASCADE"), index=True
@@ -60,16 +71,8 @@ class Grant(Base):
     program_applied: Mapped[str] = mapped_column(String(300), nullable=False)
     type_of_grant: Mapped[str | None] = mapped_column(String(150), nullable=True)
     delivering_hei: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    # Free text on purpose - grant dates are often incomplete or rough
-    # estimates ("circa 2023", "AY 2022-2023") rather than exact days.
     date_started: Mapped[str | None] = mapped_column(String(100), nullable=True)
     date_ended: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    # Separate, real integer years - the one thing the year filter/dashboard
-    # actually need. Kept independent of the free-text fields above so
-    # "rough estimate" text never has to be parsed to make filtering work.
-    # Indexed for the same reason as DepartmentAssignment.date_started/
-    # date_ended above - these are what active_in_year's SQL equivalent
-    # (_grants_active_in_year_filter) actually filters on.
     start_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     end_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     extension: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -77,3 +80,49 @@ class Grant(Base):
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scholar: Mapped["Scholar"] = relationship(back_populates="grants")
+    reviews: Mapped[list["GrantReview"]] = relationship(
+        back_populates="grant", cascade="all, delete-orphan", order_by="GrantReview.id.desc()"
+    )
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scholar_id: Mapped[int | None] = mapped_column(
+        ForeignKey("scholars.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    category: Mapped[str] = mapped_column(String(50), default="system")
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    scholar: Mapped["Scholar"] = relationship(back_populates="activity_logs")
+
+
+class ScholarNote(Base):
+    __tablename__ = "scholar_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scholar_id: Mapped[int] = mapped_column(
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    scholar: Mapped["Scholar"] = relationship(back_populates="notes")
+
+
+class GrantReview(Base):
+    __tablename__ = "grant_reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    grant_id: Mapped[int] = mapped_column(
+        ForeignKey("grants.id", ondelete="CASCADE"), index=True
+    )
+    decision: Mapped[str] = mapped_column(String(50), default="pending")
+    reviewer: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    comments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    grant: Mapped["Grant"] = relationship(back_populates="reviews")

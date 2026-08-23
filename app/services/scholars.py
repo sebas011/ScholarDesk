@@ -32,21 +32,48 @@ def build_detail_context(
     error: str | None = None,
     notice: str | None = None,
 ) -> dict:
-    """The one place that builds the scholar_detail.html template
-    context. Every route that renders that template must go through
-    this instead of hand-building the dict - five near-identical
-    copies of this logic already existed across scholars.py and
-    records.py, and a missing key in one of them already shipped a
-    real crash (assignments_total undefined) once. One function means
-    one place to get it right."""
     if scholar is None:
         return {"scholar": None, "error": error, "notice": notice}
 
     from app.services import departments as dept_service
     from app.services import grants as grant_service
+    from app.models import ActivityLog, ScholarNote, GrantReview
+    from sqlalchemy import func as sa_func
 
     all_assignments = dept_service.list_for_scholar(db, scholar.id)
     all_grants = grant_service.list_for_scholar(db, scholar.id)
+
+    # XRM: timeline + notes
+    notes = (
+        db.query(ScholarNote)
+        .filter_by(scholar_id=scholar.id)
+        .order_by(ScholarNote.id.desc())
+        .limit(20)
+        .all()
+    )
+    activity_logs = (
+        db.query(ActivityLog)
+        .filter_by(scholar_id=scholar.id)
+        .order_by(ActivityLog.id.desc())
+        .limit(50)
+        .all()
+    )
+
+    # GMS: latest review per grant
+    grant_reviews: dict[int, GrantReview] = {}
+    if all_grants:
+        grant_ids = [g.id for g in all_grants]
+        latest_review_ids = (
+            db.query(sa_func.max(GrantReview.id))
+            .filter(GrantReview.grant_id.in_(grant_ids))
+            .group_by(GrantReview.grant_id)
+            .all()
+        )
+        latest_ids = [r[0] for r in latest_review_ids if r[0] is not None]
+        if latest_ids:
+            for r in db.query(GrantReview).filter(GrantReview.id.in_(latest_ids)).all():
+                grant_reviews[r.grant_id] = r
+
     return {
         "scholar": scholar,
         "assignments": all_assignments
@@ -57,6 +84,9 @@ def build_detail_context(
         "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
         "grants_total": len(all_grants),
         "show_all_grants": show_all_grants,
+        "notes": notes,
+        "activity_logs": activity_logs,
+        "grant_reviews": grant_reviews,
         "error": error,
         "notice": notice,
     }
