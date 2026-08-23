@@ -10,9 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.templates_config import templates
+from datetime import datetime
+
+from app.models import GrantReview, ScholarNote, ActivityLog
 from app.services import departments as dept_service
 from app.services import grants as grant_service
 from app.utils.dates import parse_date
+
+
+def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
+    db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
 
 router = APIRouter()
 
@@ -56,6 +63,7 @@ def add_assignment(
             parse_date(date_started),
             parse_date(date_ended),
         )
+        _log_activity(db, scholar_id, "assignment", f"Assignment added: {department}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -98,6 +106,7 @@ def update_assignment_route(
             parse_date(date_started),
             parse_date(date_ended),
         )
+        _log_activity(db, scholar_id, "assignment", f"Assignment updated: {department}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -115,6 +124,7 @@ def delete_assignment(
 ):
     try:
         dept_service.delete_assignment(db, assignment_id)
+        _log_activity(db, scholar_id, "assignment", "Assignment deleted")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -153,6 +163,7 @@ def add_grant(
             status,
             remarks,
         )
+        _log_activity(db, scholar_id, "grant", f"Grant added: {program_applied}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -205,6 +216,7 @@ def update_grant_route(
             status,
             remarks,
         )
+        _log_activity(db, scholar_id, "grant", f"Grant updated: {program_applied}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -220,8 +232,83 @@ def update_grant_route(
 def delete_grant(request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)):
     try:
         grant_service.delete_grant(db, grant_id)
+        _log_activity(db, scholar_id, "grant", "Grant deleted")
         db.commit()
     except ValueError as e:
         db.rollback()
         return _render_scholar_detail(request, db, scholar_id, error=str(e))
     return _render_scholar_detail(request, db, scholar_id, notice="Grant deleted.")
+
+
+@router.post("/scholars/{scholar_id}/notes", response_class=HTMLResponse)
+def add_scholar_note(
+    request: Request,
+    scholar_id: int,
+    content: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    content = content.strip()
+    if not content:
+        return _render_scholar_detail(request, db, scholar_id, error="Note cannot be empty.")
+
+    try:
+        note = ScholarNote(scholar_id=scholar_id, content=content)
+        db.add(note)
+        _log_activity(db, scholar_id, "note", "Note added by user")
+        db.commit()
+    except Exception:
+        db.rollback()
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Could not add note - scholar may not exist."
+        )
+    return _render_scholar_detail(request, db, scholar_id, notice="Note added.")
+
+
+@router.delete("/scholars/{scholar_id}/notes/{note_id}", response_class=HTMLResponse)
+def delete_scholar_note(
+    request: Request,
+    scholar_id: int,
+    note_id: int,
+    db: Session = Depends(get_db),
+):
+    note = db.get(ScholarNote, note_id)
+    if not note or note.scholar_id != scholar_id:
+        return _render_scholar_detail(request, db, scholar_id, error="Note not found.")
+    db.delete(note)
+    db.commit()
+    return _render_scholar_detail(request, db, scholar_id, notice="Note deleted.")
+
+
+@router.post("/grants/{grant_id}/reviews", response_class=HTMLResponse)
+def add_grant_review(
+    request: Request,
+    grant_id: int,
+    scholar_id: int,
+    decision: str = Form(...),
+    reviewer: str = Form(""),
+    comments: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    if decision not in {"pending", "approved", "rejected", "deferred"}:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Invalid review decision."
+        )
+
+    if grant_service.get_grant(db, grant_id) is None:
+        return _render_scholar_detail(request, db, scholar_id, error="Grant not found.")
+
+    try:
+        review = GrantReview(
+            grant_id=grant_id,
+            decision=decision,
+            reviewer=reviewer.strip() or None,
+            comments=comments.strip() or None,
+            decided_at=datetime.now() if decision != "pending" else None,
+        )
+        db.add(review)
+        _log_activity(db, scholar_id, "grant_review", f"Grant review recorded: {decision}")
+        db.commit()
+    except Exception:
+        db.rollback()
+        return _render_scholar_detail(request, db, scholar_id, error="Could not record review.")
+    return _render_scholar_detail(request, db, scholar_id, notice="Review recorded.")
