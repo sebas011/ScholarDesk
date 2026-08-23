@@ -325,3 +325,35 @@ def test_delete_nonexistent_note_shows_error_not_silent_success(client):
     db = TestSession()
     assert db.get(ScholarNote, note_id) is None
     db.close()
+
+def test_department_distribution_includes_grant_only_scholars_in_year_filter(client):
+    """Regression test: department_distribution's year-filtered branch only
+    counted scholars with a DEPARTMENT ASSIGNMENT active in that year,
+    silently excluding scholars who are active that year purely via a
+    grant (no assignment) - unlike the all-time branch, which already
+    buckets any scholar with no assignment under 'Admin Staff'. Result:
+    the home page's 'Active in <year>' stat card and the department
+    breakdown table below it could show different totals, with no row
+    explaining the gap."""
+    from app.services import stats as stats_service
+
+    client.post(
+        "/scholars",
+        data={"name": "Assignment Scholar", "department": "CCS", "date_started": "2024-01-01"},
+    )
+    client.post("/scholars", data={"name": "Grant Only Scholar"})
+    client.post(
+        "/scholars/2/grants",
+        data={"program_applied": "Grant Only", "start_year": "2024"},
+    )
+    # Scholar 1: assignment dated into 2024. Scholar 2: no department
+    # assignment at all - active in 2024 purely through the grant above.
+
+    db = TestSession()
+    headline = stats_service.total_scholars_active_in_year(db, 2024)
+    dist = stats_service.department_distribution(db, year=2024)
+    db.close()
+
+    assert headline == 2
+    assert sum(dist.values()) == headline
+    assert dist.get("Admin Staff") == 1
