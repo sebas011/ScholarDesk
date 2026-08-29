@@ -15,6 +15,11 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.database import Base, get_db
 
+from sqlalchemy.exc import OperationalError
+from starlette.requests import Request
+
+from app.main import on_unhandled_exception
+
 # StaticPool keeps a single connection alive for the whole test run -
 # without it, every new session opens a *new* in-memory DB (SQLite's
 # :memory: is per-connection), and tables "disappear" between requests.
@@ -377,3 +382,24 @@ def test_blank_name_on_new_scholar_page_renders_that_page(client):
     assert "Please fill in" in resp.text
     assert 'value="28"' in resp.text
     assert 'value="BS Computer Science"' in resp.text
+
+def test_sqlite_lock_returns_retryable_response():
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/scholars",
+            "headers": [],
+        }
+    )
+    error = OperationalError(
+        "INSERT INTO scholars",
+        {},
+        Exception("database is locked"),
+    )
+
+    response = on_unhandled_exception(request, error)
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "1"
+    assert b"Database is busy. Please try again shortly." in response.body

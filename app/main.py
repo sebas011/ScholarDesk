@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import OperationalError
 
 from app.database import Base, engine
 from app.routers import scholars, records
@@ -9,6 +10,7 @@ from app.templates_config import templates
 
 from app.core.logging import configure_logging
 from app.core.logging import logger
+
 
 configure_logging()
 
@@ -66,6 +68,22 @@ async def on_validation_error(request: Request, exc: RequestValidationError):
     )
 
 
+def _is_sqlite_lock_error(exc: Exception) -> bool:
+    """Return whether SQLAlchemy wrapped a transient SQLite lock failure."""
+    if not isinstance(exc, OperationalError):
+        return False
+
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "database is locked",
+            "database table is locked",
+            "database schema is locked",
+        )
+    )
+
+
 @app.exception_handler(Exception)
 def on_unhandled_exception(request: Request, exc: Exception):
     """Last-resort safety net: anything that isn't RequestValidationError
@@ -74,6 +92,23 @@ def on_unhandled_exception(request: Request, exc: Exception):
     the user a generic message - never the exception text itself, since
     an unexpected exception (unlike our own ValueError messages) hasn't
     been vetted as safe to display."""
+    if _is_sqlite_lock_error(exc):
+        logger.warning(
+        "SQLite lock timeout on %s %s",
+        request.method,
+        request.url.path,
+        exc_info=True,
+    )
+    return templates.TemplateResponse(
+        request,
+        "partials/scholar_detail.html",
+        {
+            "scholar": None,
+            "error": "Database is busy. Please try again shortly.",
+        },
+        status_code=503,
+        headers={"Retry-After": "1"},
+    )
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return templates.TemplateResponse(
         request,
