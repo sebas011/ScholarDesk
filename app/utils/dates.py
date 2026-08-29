@@ -41,6 +41,7 @@ def parse_date(value: str | None) -> date | None:
     except ValueError:
         return None
 
+
 def range_active_in_year(
     start,
     end,

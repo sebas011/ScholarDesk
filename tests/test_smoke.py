@@ -5,6 +5,7 @@ override) so tests never touch grants.db.
 
 Run with: pytest
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -222,7 +223,6 @@ def test_grant_program_applied_too_long_shows_error_not_silently_truncated(clien
     assert "too long" in resp.text.lower()
 
 
-
 def test_add_grant_with_invalid_status_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Grant Status Test Scholar"})
     resp = client.post(
@@ -264,6 +264,7 @@ def test_dashboard_page_loads_with_data(client):
     assert "Dashboard Test Scholar" in resp.text
     assert "CAS" in resp.text
 
+
 def test_scholar_detail_page_with_grants_renders_without_context_forwarding_crash(client):
     """Regression test: build_detail_context() started returning three
     new keys (notes, activity_logs, grant_reviews) for the GMS/XRM
@@ -296,6 +297,7 @@ def test_dashboard_htmx_partial_renders_without_dept_by_scholar_crash(client):
     assert "Dashboard Partial Scholar" in resp.text
     assert "CIT" in resp.text
 
+
 def test_delete_nonexistent_note_shows_error_not_silent_success(client):
     """Regression test: delete_scholar_note only acted (db.delete + commit)
     inside `if note and note.scholar_id == scholar_id`, but returned the
@@ -325,6 +327,7 @@ def test_delete_nonexistent_note_shows_error_not_silent_success(client):
     db = TestSession()
     assert db.get(ScholarNote, note_id) is None
     db.close()
+
 
 def test_department_distribution_includes_grant_only_scholars_in_year_filter(client):
     """Regression test: department_distribution's year-filtered branch only

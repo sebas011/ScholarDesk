@@ -5,6 +5,7 @@ the earliest by id. That's the only definition in the whole codebase -
 the exact discipline the VBA version lost when three modules each had
 their own opinion about what "primary" meant.
 """
+
 from datetime import date
 from sqlalchemy.orm import Session
 from app.models import DepartmentAssignment, Scholar

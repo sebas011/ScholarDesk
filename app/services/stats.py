@@ -2,6 +2,7 @@
 Dashboard stats - mirrors modHomeStats.bas. One query instead of a
 per-scholar Excel-range walk; the database does the counting.
 """
+
 from datetime import date
 
 from sqlalchemy import func, or_, select
@@ -83,6 +84,7 @@ def total_scholars_active_in_year(db: Session, year: int) -> int:
         or 0
     )
 
+
 def years_with_data(db: Session) -> list[int]:
     """Every year touched by any assignment or grant's start/end range,
     used to populate the year-filter dropdown. Years are clamped to a
@@ -135,10 +137,9 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
         year_filtered = db.query(DepartmentAssignment).filter(
             *_assignments_active_in_year_filter(year)
         )
-        primary_ids_in_year = (
-            year_filtered.with_entities(func.min(DepartmentAssignment.id))
-            .group_by(DepartmentAssignment.scholar_id)
-        )
+        primary_ids_in_year = year_filtered.with_entities(
+            func.min(DepartmentAssignment.id)
+        ).group_by(DepartmentAssignment.scholar_id)
         relevant_assignments = (
             db.query(DepartmentAssignment)
             .filter(DepartmentAssignment.id.in_(primary_ids_in_year))

@@ -6,6 +6,7 @@ enabled because it lets reads happen while a write is in progress -
 irrelevant for true single-user use, but free insurance if you ever
 open two browser tabs at once.
 """
+
 import sys
 from pathlib import Path
 
@@ -26,9 +27,14 @@ else:
 
 DATABASE_URL = f"sqlite:///{app_dir / 'grants.db'}"
 
+SQLITE_LOCK_TIMEOUT_SECONDS = 5.0
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # needed for SQLite + FastAPI's threadpool
+    connect_args={
+        "check_same_thread": False,
+        "timeout": SQLITE_LOCK_TIMEOUT_SECONDS,
+    },
 )
 
 

@@ -15,6 +15,7 @@ back it up first: `copy grants.db grants.db.backup`) before running.
 Usage:
     python seed_sample_data.py
 """
+
 from datetime import date
 
 from app.database import Base, engine, SessionLocal

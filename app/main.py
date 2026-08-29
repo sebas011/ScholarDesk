@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
@@ -8,17 +10,22 @@ from app.templates_config import templates
 from app.core.logging import configure_logging
 from app.core.logging import logger
 
-# Dev-friendly: create tables on startup if they don't exist. For real
-# schema changes later, switch to Alembic migrations (see README) -
-# this line only ever CREATEs, it never ALTERs, so it's safe to leave
-# in but it will not save you from a schema change down the road.
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Grant Tracking System")
-
 configure_logging()
 
-logger.info("Grant Tracker started successfully.")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Initialize the portable app database and release connections on shutdown."""
+    Base.metadata.create_all(bind=engine)
+    logger.info("Grant Tracker started successfully.")
+    try:
+        yield
+    finally:
+        engine.dispose()
+        logger.info("Grant Tracker stopped.")
+
+
+app = FastAPI(title="Grant Tracking System", lifespan=lifespan)
 
 app.include_router(scholars.router)
 app.include_router(records.router)

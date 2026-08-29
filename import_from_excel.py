@@ -19,6 +19,7 @@ If your actual column headers differ even slightly, this will tell you
 exactly which ones it couldn't find rather than silently skipping data -
 see the "Missing expected columns" check below.
 """
+
 import sys
 from datetime import date, datetime
 
@@ -106,9 +107,7 @@ def main(xlsx_path: str):
                 counts["errors"] += 1
 
         print("-- Department Assignments --")
-        for row in _sheet_rows(
-            wb, "Departments", ["EmployeeID", "Department", "Rank", "Tenure"]
-        ):
+        for row in _sheet_rows(wb, "Departments", ["EmployeeID", "Department", "Rank", "Tenure"]):
             old_emp_id = row.get("EmployeeID")
             new_id = employee_id_map.get(int(old_emp_id)) if old_emp_id is not None else None
             if new_id is None:
@@ -138,8 +137,15 @@ def main(xlsx_path: str):
             wb,
             "Grants",
             [
-                "EmployeeID", "ProgramApplied", "TypeOfGrant", "DeliveringHEI",
-                "DateStarted", "DateEnded", "Extension", "Status", "Remarks",
+                "EmployeeID",
+                "ProgramApplied",
+                "TypeOfGrant",
+                "DeliveringHEI",
+                "DateStarted",
+                "DateEnded",
+                "Extension",
+                "Status",
+                "Remarks",
             ],
         ):
             old_emp_id = row.get("EmployeeID")

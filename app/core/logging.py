@@ -40,9 +40,7 @@ def configure_logging() -> logging.Logger:
 
     logger.setLevel(logging.INFO)
 
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
 
     handler = RotatingFileHandler(
         LOG_FILE,

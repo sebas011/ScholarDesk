@@ -14,6 +14,7 @@ class AppError(Exception):
 # Scholar Exceptions
 # ---------------------------------------------------------------------
 
+
 class ScholarError(AppError):
     """Base class for scholar-related errors."""
 
@@ -29,9 +30,11 @@ class DuplicateScholarError(ScholarError):
 class InvalidScholarError(ScholarError):
     """Raised when scholar data fails validation."""
 
+
 # ---------------------------------------------------------------------
 # Department Exceptions
 # ---------------------------------------------------------------------
+
 
 class DepartmentError(AppError):
     """Base class for department assignment errors."""
@@ -48,6 +51,7 @@ class AssignmentOverlapError(DepartmentError):
 # ---------------------------------------------------------------------
 # Grant Exceptions
 # ---------------------------------------------------------------------
+
 
 class GrantError(AppError):
     """Base class for grant-related errors."""

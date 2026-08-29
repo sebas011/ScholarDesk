@@ -1,11 +1,13 @@
 """
 Entry point for both development and PyInstaller builds.
 """
+
 import sys
 import uvicorn
 
 # CRITICAL: This forces PyInstaller to bundle the entire app package
 import app.main  # noqa: F401
+
 
 def main():
     url = "http://127.0.0.1:8000"
@@ -13,6 +15,7 @@ def main():
     if getattr(sys, "frozen", False):
         import threading
         import webbrowser
+
         print(f"Starting ScholarDesk at {url}")
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
@@ -25,6 +28,7 @@ def main():
     if getattr(sys, "frozen", False):
         kwargs["log_config"] = None
     uvicorn.run("app.main:app", **kwargs)
+
 
 if __name__ == "__main__":
     main()

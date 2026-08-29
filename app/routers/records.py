@@ -4,6 +4,7 @@ a scholar_id, so they live in one router rather than mirroring three
 top-level VBA modules 1:1 - the HTTP shape doesn't need to match the
 VBA file layout, only the business-logic layer does.
 """
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.utils.dates import parse_date
 
 def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
     db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
+
 
 router = APIRouter()
 
@@ -290,9 +292,7 @@ def add_grant_review(
     db: Session = Depends(get_db),
 ):
     if decision not in {"pending", "approved", "rejected", "deferred"}:
-        return _render_scholar_detail(
-            request, db, scholar_id, error="Invalid review decision."
-        )
+        return _render_scholar_detail(request, db, scholar_id, error="Invalid review decision.")
 
     if grant_service.get_grant(db, grant_id) is None:
         return _render_scholar_detail(request, db, scholar_id, error="Grant not found.")

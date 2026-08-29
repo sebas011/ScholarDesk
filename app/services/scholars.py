@@ -9,6 +9,7 @@ a message meant to be shown directly to the user - the same contract
 the VBA (ok As Boolean, outMsg As String) pattern had, just using
 exceptions instead of out-parameters because that's idiomatic here.
 """
+
 from datetime import date
 
 from sqlalchemy import or_
@@ -269,9 +270,7 @@ def update_scholar(
     try:
         scholar.name = name
         scholar.age = age
-        scholar.previous_degree = (
-            (previous_degree or "").strip() or None
-        )
+        scholar.previous_degree = (previous_degree or "").strip() or None
         scholar.missing_requirements = missing_requirements
 
         logger.info(

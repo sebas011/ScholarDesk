@@ -38,6 +38,7 @@ def _parse_year(year: str | None) -> int | None:
     except ValueError:
         return None
 
+
 router = APIRouter()
 
 
@@ -458,6 +459,7 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
         headers={"HX-Trigger": "scholar-changed"},
     )
 
+
 @router.get("/dashboard/export")
 def dashboard_export(
     request: Request,
@@ -501,31 +503,46 @@ def dashboard_export(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "Name", "Rank", "Department", "Age", "Tenure", "Previous Degree",
-        "Program Applied", "Delivering HEI", "Type of Grant", "Date Started",
-        "Date Ended", "Extension", "Status", "Remarks",
-    ])
+    writer.writerow(
+        [
+            "Name",
+            "Rank",
+            "Department",
+            "Age",
+            "Tenure",
+            "Previous Degree",
+            "Program Applied",
+            "Delivering HEI",
+            "Type of Grant",
+            "Date Started",
+            "Date Ended",
+            "Extension",
+            "Status",
+            "Remarks",
+        ]
+    )
 
     for g in grants:
         s = g.scholar
         a = assignments_by_scholar.get(s.id)
-        writer.writerow([
-            s.name,
-            a.rank if a else "",
-            a.department if a else "",
-            s.age or "",
-            a.tenure if a else "",
-            s.previous_degree or "",
-            g.program_applied,
-            g.delivering_hei or "",
-            g.type_of_grant or "",
-            g.date_started or "",
-            g.date_ended or "",
-            g.extension or "",
-            g.status,
-            g.remarks or "",
-        ])
+        writer.writerow(
+            [
+                s.name,
+                a.rank if a else "",
+                a.department if a else "",
+                s.age or "",
+                a.tenure if a else "",
+                s.previous_degree or "",
+                g.program_applied,
+                g.delivering_hei or "",
+                g.type_of_grant or "",
+                g.date_started or "",
+                g.date_ended or "",
+                g.extension or "",
+                g.status,
+                g.remarks or "",
+            ]
+        )
 
     output.seek(0)
     date_str = datetime.now().strftime("%Y-%m-%d")

@@ -13,6 +13,7 @@ Usage:
 
 Defaults to ./grants.db if no path given.
 """
+
 import sqlite3
 import sys
 

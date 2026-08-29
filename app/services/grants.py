@@ -1,8 +1,10 @@
 """
 Grant business logic - mirrors modGrants.bas.
 """
+
 from sqlalchemy.orm import Session
 from app.models import Grant, Scholar
+
 VALID_STATUSES = ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Withdrawn"]
 
 PROGRAM_APPLIED_MAX_LENGTH = 300

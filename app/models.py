@@ -5,6 +5,7 @@ DepartmentAssignment now carries date_started/date_ended - the field the
 VBA version was missing, which is why "which year is this assignment
 active in" was never answerable there.
 """
+
 from datetime import date, datetime
 
 from sqlalchemy import String, Integer, Boolean, Date, DateTime, ForeignKey, Text, func
@@ -116,9 +117,7 @@ class GrantReview(Base):
     __tablename__ = "grant_reviews"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    grant_id: Mapped[int] = mapped_column(
-        ForeignKey("grants.id", ondelete="CASCADE"), index=True
-    )
+    grant_id: Mapped[int] = mapped_column(ForeignKey("grants.id", ondelete="CASCADE"), index=True)
     decision: Mapped[str] = mapped_column(String(50), default="pending")
     reviewer: Mapped[str | None] = mapped_column(String(200), nullable=True)
     comments: Mapped[str | None] = mapped_column(Text, nullable=True)
