@@ -18,6 +18,11 @@ from app.database import Base, get_db
 from sqlalchemy.exc import OperationalError
 from starlette.requests import Request
 
+import json
+import logging
+
+from app.core.logging import JsonFormatter
+
 from app.main import on_unhandled_exception
 
 # StaticPool keeps a single connection alive for the whole test run -
@@ -403,3 +408,21 @@ def test_sqlite_lock_returns_retryable_response():
     assert response.status_code == 503
     assert response.headers["retry-after"] == "1"
     assert b"Database is busy. Please try again shortly." in response.body
+
+def test_json_formatter_emits_parseable_utc_log_record():
+    record = logging.LogRecord(
+        name="grant_tracker",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Scholar %s updated",
+        args=(123,),
+        exc_info=None,
+    )
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["timestamp"].endswith("Z")
+    assert payload["level"] == "INFO"
+    assert payload["logger"] == "grant_tracker"
+    assert payload["message"] == "Scholar 123 updated"

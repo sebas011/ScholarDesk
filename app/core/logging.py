@@ -4,6 +4,8 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import json
+import time
 
 # ------------------------------------------------------------------
 # Log directory
@@ -24,6 +26,23 @@ LOG_DIR.mkdir(exist_ok=True)
 
 LOG_FILE = LOG_DIR / "grant_tracker.log"
 
+class JsonFormatter(logging.Formatter):
+    """Serialize application logs as one JSON object per line."""
+
+    converter = time.gmtime
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%SZ"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, ensure_ascii=False)
 
 def configure_logging() -> logging.Logger:
     """
@@ -40,7 +59,7 @@ def configure_logging() -> logging.Logger:
 
     logger.setLevel(logging.INFO)
 
-    formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
+    formatter = JsonFormatter()
 
     handler = RotatingFileHandler(
         LOG_FILE,
