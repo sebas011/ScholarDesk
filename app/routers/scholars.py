@@ -258,7 +258,7 @@ def new_scholar_form(request: Request):
 @router.post("/scholars/new", response_class=HTMLResponse)
 def create_scholar_page(
     request: Request,
-    name: str = Form(""),
+    name: str = Form(...),
     age: str = Form(""),
     previous_degree: str = Form(""),
     missing_requirements: bool = Form(False),
@@ -344,7 +344,7 @@ def scholar_detail(
 @router.post("/scholars", response_class=HTMLResponse)
 def create_scholar(
     request: Request,
-    name: str = Form(""),
+    name: str = Form(...),
     age: str = Form(""),
     previous_degree: str = Form(""),
     missing_requirements: bool = Form(False),
