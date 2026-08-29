@@ -18,6 +18,8 @@ from app.database import Base, get_db
 from sqlalchemy.exc import OperationalError
 from starlette.requests import Request
 
+from unittest.mock import patch
+
 import json
 import logging
 
@@ -403,7 +405,15 @@ def test_sqlite_lock_returns_retryable_response():
         Exception("database is locked"),
     )
 
-    response = on_unhandled_exception(request, error)
+    with patch("app.main.logger.warning") as warning:
+        response = on_unhandled_exception(request, error)
+
+    warning.assert_called_once_with(
+    "SQLite lock timeout on %s %s",
+    "POST",
+    "/scholars",
+    exc_info=(type(error), error, error.__traceback__),
+)
 
     assert response.status_code == 503
     assert response.headers["retry-after"] == "1"

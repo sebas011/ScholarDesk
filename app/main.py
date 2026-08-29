@@ -94,11 +94,11 @@ def on_unhandled_exception(request: Request, exc: Exception):
     been vetted as safe to display."""
     if _is_sqlite_lock_error(exc):
         logger.warning(
-        "SQLite lock timeout on %s %s",
-        request.method,
-        request.url.path,
-        exc_info=True,
-    )
+    "SQLite lock timeout on %s %s",
+    request.method,
+    request.url.path,
+    exc_info=(type(exc), exc, exc.__traceback__),
+)
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",
