@@ -32,13 +32,32 @@ app.include_router(records.router)
 
 
 @app.exception_handler(RequestValidationError)
-def on_validation_error(request: Request, exc: RequestValidationError):
+async def on_validation_error(request: Request, exc: RequestValidationError):
     """A blank/malformed required field (e.g. Name left empty) would
     otherwise return raw FastAPI JSON straight into an htmx swap target,
     which just dumps '{"detail": ...}' text into the page. Render the
     same styled error partial every other failure path uses instead."""
     missing = [".".join(str(p) for p in err["loc"] if p != "body") for err in exc.errors()]
     message = f"Please fill in: {', '.join(missing)}" if missing else "Invalid submission."
+    if request.method == "POST" and request.url.path == "/scholars/new":
+        form = await request.form()
+        return templates.TemplateResponse(
+            request,
+            "scholar_new.html",
+            {
+                "error": message,
+                "form": {
+                    "name": str(form.get("name", "")),
+                    "age": str(form.get("age", "")),
+                    "previous_degree": str(form.get("previous_degree", "")),
+                    "department": str(form.get("department", "")),
+                    "rank": str(form.get("rank", "")),
+                    "tenure": str(form.get("tenure", "")),
+                },
+            },
+            status_code=422,
+        )
+
     return templates.TemplateResponse(
         request,
         "partials/scholar_detail.html",

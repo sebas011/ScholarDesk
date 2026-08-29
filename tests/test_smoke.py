@@ -317,6 +317,7 @@ def test_delete_nonexistent_note_shows_error_not_silent_success(client):
 
     db = TestSession()
     real_note = db.query(ScholarNote).filter_by(scholar_id=1).first()
+    assert real_note is not None
     note_id = real_note.id
     db.close()
 
@@ -360,3 +361,19 @@ def test_department_distribution_includes_grant_only_scholars_in_year_filter(cli
     assert headline == 2
     assert sum(dist.values()) == headline
     assert dist.get("Admin Staff") == 1
+
+def test_blank_name_on_new_scholar_page_renders_that_page(client):
+    resp = client.post(
+        "/scholars/new",
+        data={
+            "name": "",
+            "age": "28",
+            "previous_degree": "BS Computer Science",
+        },
+    )
+
+    assert resp.status_code == 422
+    assert "Add Scholar" in resp.text
+    assert "Please fill in" in resp.text
+    assert 'value="28"' in resp.text
+    assert 'value="BS Computer Science"' in resp.text
