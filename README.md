@@ -75,7 +75,7 @@ pytest
 
 ## Project layout
 
-```
+```text
 app/
   main.py              FastAPI app + startup + validation error handling
   database.py          SQLite engine/session

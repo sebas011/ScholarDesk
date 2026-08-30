@@ -8,9 +8,12 @@ from app.database import Base, engine
 from app.routers import scholars, records
 from app.templates_config import templates
 
+from fastapi import Depends
+
 from app.core.logging import configure_logging
 from app.core.logging import logger
 
+from app.core.auth import verify_credentials
 
 configure_logging()
 
@@ -26,8 +29,11 @@ async def lifespan(_: FastAPI):
         engine.dispose()
         logger.info("Grant Tracker stopped.")
 
-
-app = FastAPI(title="Grant Tracking System", lifespan=lifespan)
+app = FastAPI(
+    title="Grant Tracking System",
+    lifespan=lifespan,
+    dependencies=[Depends(verify_credentials)],
+)
 
 app.include_router(scholars.router)
 app.include_router(records.router)
@@ -94,21 +100,21 @@ def on_unhandled_exception(request: Request, exc: Exception):
     been vetted as safe to display."""
     if _is_sqlite_lock_error(exc):
         logger.warning(
-    "SQLite lock timeout on %s %s",
-    request.method,
-    request.url.path,
-    exc_info=(type(exc), exc, exc.__traceback__),
-)
-    return templates.TemplateResponse(
-        request,
-        "partials/scholar_detail.html",
-        {
-            "scholar": None,
-            "error": "Database is busy. Please try again shortly.",
-        },
-        status_code=503,
-        headers={"Retry-After": "1"},
-    )
+            "SQLite lock timeout on %s %s",
+            request.method,
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        return templates.TemplateResponse(
+            request,
+            "partials/scholar_detail.html",
+            {
+                "scholar": None,
+                "error": "Database is busy. Please try again shortly.",
+            },
+            status_code=503,
+            headers={"Retry-After": "1"},
+        )
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return templates.TemplateResponse(
         request,
