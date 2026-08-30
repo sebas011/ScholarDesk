@@ -2,10 +2,13 @@
 Grant business logic - mirrors modGrants.bas.
 """
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
-from app.models import Grant, Scholar
+from app.models import Grant, GrantReview, Scholar
 
 VALID_STATUSES = ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Withdrawn"]
+VALID_REVIEW_DECISIONS = ["pending", "approved", "rejected", "deferred"]
 
 PROGRAM_APPLIED_MAX_LENGTH = 300
 TYPE_OF_GRANT_MAX_LENGTH = 150
@@ -165,3 +168,31 @@ def delete_grant(db: Session, grant_id: int) -> None:
     if grant is None:
         raise ValueError(f"Grant {grant_id} not found.")
     db.delete(grant)
+
+
+def add_review(
+    db: Session,
+    grant_id: int,
+    decision: str,
+    reviewer: str | None,
+    comments: str | None,
+) -> GrantReview:
+    """Previously constructed and written to directly from
+    app/routers/records.py, including its own decision/grant-existence
+    validation inline in the route - unlike create_grant/update_grant/
+    delete_grant above, which all validate here. Moved here to match."""
+    if get_grant(db, grant_id) is None:
+        raise ValueError("Grant not found.")
+    if decision not in VALID_REVIEW_DECISIONS:
+        raise ValueError(f"Invalid review decision: {decision}")
+
+    review = GrantReview(
+        grant_id=grant_id,
+        decision=decision,
+        reviewer=(reviewer or "").strip() or None,
+        comments=(comments or "").strip() or None,
+        decided_at=datetime.now() if decision != "pending" else None,
+    )
+    db.add(review)
+    db.flush()
+    return review

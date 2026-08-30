@@ -14,7 +14,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import Base, get_db
-
 from sqlalchemy.exc import OperationalError
 from starlette.requests import Request
 
@@ -24,8 +23,11 @@ import json
 import logging
 
 from app.core.logging import JsonFormatter
+from app.core.auth import verify_credentials
 
 from app.main import on_unhandled_exception
+
+# StaticPool keeps a single connection alive for the whole test run -
 
 # StaticPool keeps a single connection alive for the whole test run -
 # without it, every new session opens a *new* in-memory DB (SQLite's
@@ -47,6 +49,19 @@ def override_get_db():
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+
+def override_verify_credentials():
+    """Bypass the Basic Auth gate entirely for tests - same reasoning
+    as overriding get_db above: tests must never depend on, or write
+    to, the real auth.txt file next to the real grants.db. Without
+    this, running pytest would create a stray auth.txt in the repo
+    root, and tests would silently start failing on any machine where
+    the real password had been changed from the default."""
+    return "test-user"
+
+
+app.dependency_overrides[verify_credentials] = override_verify_credentials
 
 
 @pytest.fixture(autouse=True)
