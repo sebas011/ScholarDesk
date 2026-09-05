@@ -42,7 +42,7 @@ def _parse_year(year: str | None) -> int | None:
 router = APIRouter()
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/home", response_class=HTMLResponse)
 def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
     from app.services import stats as stats_service
     from datetime import date as _date

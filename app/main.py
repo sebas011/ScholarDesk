@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 
 from app.database import Base, engine
-from app.routers import scholars, records
+from app.routers import scholars, records, launcher
 from app.templates_config import templates
 
 from fastapi import Depends
@@ -35,6 +35,7 @@ app = FastAPI(
     dependencies=[Depends(verify_credentials)],
 )
 
+app.include_router(launcher.router)
 app.include_router(scholars.router)
 app.include_router(records.router)
 

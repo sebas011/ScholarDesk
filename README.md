@@ -4,7 +4,11 @@ Local desktop app for tracking **scholars**, **department assignments**, and **g
 
 ScholarDesk is a single-user FastAPI + SQLite web app, packaged as a Windows executable (`ScholarDesk.exe`). It is a relational rewrite of a VBA/Excel grant tracker: real foreign keys instead of a shared `EmployeeID` string, date ranges on assignments, and year-based filtering that actually answers "who was active in this year?"
 
-The server binds to `127.0.0.1` only. There is no authentication. Do not expose it on a network.
+The server binds to `127.0.0.1` by default and requires HTTP Basic Auth. LAN access is opt-in through `network.txt` after changing the default password.
+
+## Optional LAN access
+
+The app listens on `127.0.0.1` by default. To allow access from other computers on the same LAN, set `allow_lan=true` in the generated `network.txt` after changing the default password in `auth.txt`. Restart the app after changing `network.txt`.
 
 ---
 
@@ -69,7 +73,7 @@ pytest
 ## Known gaps
 
 - Schema changes only ever `CREATE TABLE IF NOT EXISTS` on startup — no migration tool yet. Fine while the schema is still moving; add Alembic before this is considered fully "done"
-- No auth / access control beyond binding to `127.0.0.1` (see note above) — acceptable for local single-user use, not acceptable if this ever leaves your machine
+- HTTP Basic Auth and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
 
 ---
 

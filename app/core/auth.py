@@ -7,8 +7,8 @@ Credentials live in a plain-text file next to grants.db, not an
 environment variable - this app is meant to be handed to non-technical
 people, and "edit this text file" is a much lower bar than "set a
 Windows environment variable." Auto-generated with an obvious default
-on first run so the app works out of the box, paired with a startup
-check (see app/main.py) that refuses to bind to anything but localhost
+on first run so the app works out of the box. The application binds to
+localhost by default; LAN access requires explicit configuration.
 until that default is changed.
 """
 import secrets

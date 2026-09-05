@@ -8,6 +8,7 @@ grants.db-shm
 # PyInstaller build/output - these bundle a full copy of grants.db
 # (real scholar names, ages, etc.) plus logs, so they must never be
 # committed even though grants.db itself already is.
+auth.txt
 build/
 dist/
 logs/
@@ -16,4 +17,5 @@ logs/
 .vs/
 *.db.backup*
 .vscode/
+network.txt
 .coverage
