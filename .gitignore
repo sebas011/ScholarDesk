@@ -17,3 +17,5 @@ logs/
 *.db.backup*
 .vscode/
 .coverage
+auth.txt
+
