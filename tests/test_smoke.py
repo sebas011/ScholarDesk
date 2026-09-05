@@ -7,6 +7,9 @@ Run with: pytest
 """
 
 import pytest
+from fastapi import HTTPException
+from fastapi.security import HTTPBasicCredentials
+from app.core import auth
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -77,7 +80,7 @@ def client():
 
 
 def test_home_starts_empty(client):
-    resp = client.get("/")
+    resp = client.get("/home")
     assert resp.status_code == 200
     assert '<div class="text-3xl font-bold text-navy-900">0</div>' in resp.text
 
@@ -149,13 +152,13 @@ def test_delete_scholar_cascades_to_assignments_and_grants(client):
         data={"program_applied": "Test Grant", "date_started": "2025-01-01"},
     )
 
-    dash = client.get("/")
+    dash = client.get("/home")
     assert '<div class="text-3xl font-bold text-navy-900">1</div>' in dash.text
 
     del_resp = client.delete("/scholars/1")
     assert del_resp.status_code == 200
 
-    dash_after = client.get("/")
+    dash_after = client.get("/home")
     assert '<div class="text-3xl font-bold text-navy-900">0</div>' in dash_after.text
 
 
@@ -451,3 +454,57 @@ def test_json_formatter_emits_parseable_utc_log_record():
     assert payload["level"] == "INFO"
     assert payload["logger"] == "grant_tracker"
     assert payload["message"] == "Scholar 123 updated"
+
+def test_auth_accepts_credentials_from_file(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    credentials_file.write_text("username=test-user\npassword=test-pass\n", encoding="utf-8")
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
+
+    assert auth.verify_credentials(credentials) == "test-user"
+
+
+def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    credentials_file.write_text(
+        "username=test-user\npassword=test-pass\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
+
+    assert auth.verify_credentials(credentials) == "test-user"
+
+
+@pytest.mark.parametrize(
+    ("username", "password"),
+    [
+        ("wrong-user", "test-pass"),
+        ("test-user", "wrong-pass"),
+    ],
+)
+def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, password):
+    credentials_file = tmp_path / "auth.txt"
+    credentials_file.write_text(
+        "username=test-user\npassword=test-pass\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    credentials = HTTPBasicCredentials(username=username, password=password)
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(credentials)
+
+    assert error.value.status_code == 401
+    assert error.value.headers == {"WWW-Authenticate": "Basic"}
+
+
+def test_auth_creates_default_credentials_file(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    assert auth.load_credentials() == ("admin", "changeme")
+    assert credentials_file.exists()
