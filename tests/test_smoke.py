@@ -41,6 +41,7 @@ from app.services.payroll_import import summarize_payroll_audit
 from app.main import on_unhandled_exception
 from app.services.payroll_import import load_workload_assignments
 from app.services.payroll_import import load_payroll_projection
+from app.payroll_models import PayrollWorkloadAssignment
 
 import json
 import logging
@@ -1931,3 +1932,16 @@ def test_payroll_database_uses_separate_sqlite_file():
         assert db.bind is payroll_engine
     finally:
         db_generator.close()
+
+
+def test_payroll_workload_schema_is_separate():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+
+    try:
+        assert PayrollWorkloadAssignment.__tablename__ == (
+            "payroll_workload_assignments"
+        )
+        assert "course_code" in PayrollWorkloadAssignment.__table__.columns
+        assert "faculty" in PayrollWorkloadAssignment.__table__.columns
+    finally:
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
