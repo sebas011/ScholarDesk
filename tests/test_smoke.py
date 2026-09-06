@@ -1516,7 +1516,7 @@ def test_new_scholar_form_normal_request_returns_full_page(client):
     assert "Add Scholar" in response.text
 
 
-def test_create_scholar_page_success_redirects_to_profile(client):
+def test_create_scholar_page_success_redirects_to_dashboard(client):
     response = client.post(
         "/scholars/new",
         data={
@@ -1533,7 +1533,7 @@ def test_create_scholar_page_success_redirects_to_profile(client):
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/scholars/1"
+    assert response.headers["location"] == "/dashboard"
 
 
 def test_create_scholar_page_validation_error_rerenders_form(client):
