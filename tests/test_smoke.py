@@ -47,6 +47,8 @@ import json
 import logging
 from app.payroll_models import PayrollAuditRecord
 from app.services.payroll_store import replace_payroll_audits
+from app.services.payroll_import_service import import_payroll_workbooks
+
 from app.payroll_database import (
     PayrollBase,
     get_payroll_db,
@@ -2070,6 +2072,87 @@ def test_payroll_store_replaces_audit_records():
         assert saved.source_row == 7
         assert saved.payroll_number == 1
         assert saved.match_status == "unresolved"
+    finally:
+        db.close()
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_import_payroll_workbooks_stores_anonymized_inputs(tmp_path):
+    import pandas as pd
+
+    workload_path = tmp_path / "workload.xlsx"
+    projection_path = tmp_path / "projection.xlsx"
+
+    workload_rows = [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        [
+            "College", "Program", "Campus", "Faculty", "Academic Rank",
+            "Educational Qualification", "Designation/ Other Assignments",
+            "Course Code", "Descriptive Title", "Program/ Year/ Section",
+            "Lec", "Lab", "Total", "Type of Load", "Total Teaching Load",
+            "No. of Preps", "ETU for Designation/ Assignment",
+            "Total Workload", "Over-load", "Remarks",
+        ],
+        [
+            "COED", "BSIT", "Talisay", "", "Instructor I", "", "",
+            "COURSE101", "Testing", "BSIT 1A", 3, 0, 3, "Regular",
+            3, 1, 0, 3, 0, "",
+        ],
+    ]
+    pd.DataFrame(workload_rows).to_excel(
+        workload_path,
+        sheet_name="Consolidated",
+        header=False,
+        index=False,
+    )
+
+    projection_headers: list[object] = [
+        "No.", "Name", "Position", "Campus", "College", "Program",
+        "No. of Hrs. Teaching Load", "No. of Prep", "No. of Excess Hrs./Wk",
+        "Total No. of Wks.", "No. of Weeks Absent",
+        "Net No. of Overload Wks.", "No. of Hours Overload",
+        "Salary Rate/Month", "Salary Rate/Hr", "Amount Due",
+        "Withholding Tax Rate", "Withholding Tax", "Net Amount Due",
+        "Signature of Recipient", "Semester Salary", "Unnamed: 21",
+    ]
+    projection_rows: list[list[object]] = [
+        [""] * len(projection_headers) for _ in range(5)
+    ]
+    projection_rows.extend(
+        [
+            projection_headers,
+            [
+                1, "", "Instructor I", "Talisay", "COED", "BSIT",
+                3, 1, 0, 18, 0, 18, 0, 30000, 166.67, 0,
+                0.1, 0, 0, "", 0, "",
+            ],
+        ]
+    )
+    pd.DataFrame(projection_rows).to_excel(
+        projection_path,
+        sheet_name="Consolidated - Alphabetical",
+        header=False,
+        index=False,
+    )
+
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+    db = TestSession(bind=payroll_engine)
+
+    try:
+        summary = import_payroll_workbooks(
+            db,
+            workload_path,
+            projection_path,
+        )
+
+        assert summary == {
+            "workload_records": 1,
+            "projection_records": 1,
+            "matched_records": 0,
+            "unresolved_records": 1,
+        }
+        assert db.query(PayrollAuditRecord).count() == 1
     finally:
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
