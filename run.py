@@ -3,6 +3,10 @@ Entry point for both development and PyInstaller builds.
 """
 
 import sys
+import shutil
+import subprocess
+import tempfile
+import threading
 import uvicorn
 
 # CRITICAL: This forces PyInstaller to bundle the entire app package
@@ -32,23 +36,44 @@ def _resolve_host() -> str:
 
 def main():
     url = "http://127.0.0.1:8000"
-    # Auto-open browser when running from .exe (frozen)
-    if getattr(sys, "frozen", False):
-        import threading
-        import webbrowser
-
-        print(f"Starting ScholarDesk at {url}")
-        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+    frozen = getattr(sys, "frozen", False)
 
     kwargs = {
         "host": _resolve_host(),
         "port": 8000,
         "log_level": "info",
-        "reload": not getattr(sys, "frozen", False),
+        "reload": not frozen,
     }
-    if getattr(sys, "frozen", False):
+    if frozen:
         kwargs["log_config"] = None
-    uvicorn.run("app.main:app", **kwargs)
+
+    if not frozen:
+        uvicorn.run("app.main:app", **kwargs)
+        return
+
+    edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+    profile_dir = tempfile.mkdtemp(prefix="scholardesk-edge-")
+    config = uvicorn.Config("app.main:app", **kwargs)
+    server = uvicorn.Server(config)
+
+    def launch_and_monitor_browser():
+        try:
+            browser = subprocess.Popen(
+                [
+                    edge,
+                    f"--user-data-dir={profile_dir}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    f"--app={url}",
+                ]
+            )
+            browser.wait()
+            server.should_exit = True
+        finally:
+            shutil.rmtree(profile_dir, ignore_errors=True)
+
+    threading.Timer(1.5, launch_and_monitor_browser).start()
+    server.run()
 
 
 if __name__ == "__main__":
