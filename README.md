@@ -48,7 +48,8 @@ pip install -r requirements.txt
 build.bat
 ```
 
-Produces `dist\ScholarDesk.exe` — a single file. Copy it anywhere (a folder, a USB drive, wherever) and double-click it; it opens your browser to the app automatically. `grants.db` is created next to the `.exe` the first time you run it, and stays there across runs.
+Produces `dist\ScholarDesk.exe` — a single file. Copy it anywhere (a folder, a USB drive, wherever) and double-click it; it opens ScholarDesk in a dedicated Microsoft Edge app window.
+Close that dedicated ScholarDesk window to stop the background server completely. The packaged app uses a temporary Edge profile and does not leave the server listening after the window closes. `grants.db` is created next to the `.exe` the first time you run it, and stays there across runs.
 
 **From source:**
 
