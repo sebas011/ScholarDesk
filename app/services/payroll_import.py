@@ -212,3 +212,20 @@ def audit_payroll_projection(
         )
 
     return audited
+
+
+def summarize_payroll_audit(records: list[dict]) -> dict:
+    matched = sum(
+        record.get("match_status") == "matched"
+        for record in records
+    )
+    unresolved = sum(
+        record.get("match_status") == "unresolved"
+        for record in records
+    )
+
+    return {
+        "total_records": len(records),
+        "matched_records": matched,
+        "unresolved_records": unresolved,
+    }

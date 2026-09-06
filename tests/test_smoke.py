@@ -37,7 +37,7 @@ from unittest.mock import patch
 from app.services.payroll_import import audit_payroll_projection
 from app.core.logging import JsonFormatter
 from app.core.auth import verify_credentials
-
+from app.services.payroll_import import summarize_payroll_audit
 from app.main import on_unhandled_exception
 from app.services.payroll_import import load_workload_assignments
 from app.services.payroll_import import load_payroll_projection
@@ -1897,3 +1897,17 @@ def test_audit_payroll_projection_requires_workload_name_match():
 
     assert audited[2]["match_status"] == "unresolved"
     assert "not found" in audited[2]["match_reason"]
+
+
+def test_summarize_payroll_audit_counts_statuses():
+    records = [
+        {"match_status": "matched"},
+        {"match_status": "unresolved"},
+        {"match_status": "unresolved"},
+    ]
+
+    assert summarize_payroll_audit(records) == {
+        "total_records": 3,
+        "matched_records": 1,
+        "unresolved_records": 2,
+    }
