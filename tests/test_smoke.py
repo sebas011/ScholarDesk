@@ -40,6 +40,7 @@ from app.core.auth import verify_credentials
 
 from app.main import on_unhandled_exception
 from app.services.payroll_import import load_workload_assignments
+from app.services.payroll_import import load_payroll_projection
 
 import json
 import logging
@@ -1798,3 +1799,79 @@ def test_load_workload_assignments_forward_fills_grouped_fields(tmp_path):
     assert assignments[1]["position"] == "Instructor I"
     assert assignments[1]["lecture"] == Decimal("2")
     assert assignments[1]["lab"] == Decimal("4")
+
+
+def test_load_payroll_projection_reads_consolidated_sheet(tmp_path):
+    import pandas as pd
+
+    path = tmp_path / "payroll.xlsx"
+    headers: list[object] = [
+        "No.",
+        "Name",
+        "Position",
+        "Campus",
+        "College",
+        "Program",
+        "No. of Hrs. Teaching Load",
+        "No. of Prep",
+        "No. of Excess Hrs./Wk",
+        "Total No. of Wks.",
+        "No. of Weeks Absent",
+        "Net No. of Overload Wks.",
+        "No. of Hours Overload",
+        "Salary Rate/Month",
+        "Salary Rate/Hr",
+        "Amount Due",
+        "Withholding Tax Rate",
+        "Withholding Tax",
+        "Net Amount Due",
+        "Signature of Recipient",
+        "Semester Salary",
+        "Unnamed: 21",
+    ]
+    rows: list[list[object]] = [
+        [""] * len(headers) for _ in range(5)
+    ]
+    rows.extend(
+        [
+            headers,
+            [
+                1,
+                "Test Faculty",
+                "Instructor I",
+                "Talisay",
+                "COED",
+                "BSIT",
+                24,
+                3,
+                6,
+                18,
+                0,
+                18,
+                108,
+                30000,
+                166.67,
+                18000,
+                0.1,
+                1800,
+                16200,
+                "",
+                18000,
+                "",
+            ],
+        ]
+    )
+    pd.DataFrame(rows).to_excel(
+        path,
+        sheet_name="Consolidated - Alphabetical",
+        header=False,
+        index=False,
+    )
+
+    records = load_payroll_projection(path)
+
+    assert len(records) == 1
+    assert records[0]["name"] == "Test Faculty"
+    assert records[0]["teaching_load"] == Decimal("24")
+    assert records[0]["hours_overload"] == Decimal("108")
+    assert records[0]["source_row"] == 7
