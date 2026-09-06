@@ -45,8 +45,13 @@ from app.services.payroll_import import load_payroll_projection
 import json
 import logging
 
-STANDARD_WEEKLY_HOURS = 40
+from app.payroll_database import (
+    PayrollBase,
+    get_payroll_db,
+    payroll_engine,
+)
 
+STANDARD_WEEKLY_HOURS = 40
 
 
 # StaticPool keeps a single connection alive for the whole test run -
@@ -1911,3 +1916,18 @@ def test_summarize_payroll_audit_counts_statuses():
         "matched_records": 1,
         "unresolved_records": 2,
     }
+
+
+def test_payroll_database_uses_separate_sqlite_file():
+    assert payroll_engine.url.database is not None
+    assert payroll_engine.url.database.endswith("payroll.db")
+    assert payroll_engine is not engine
+    assert PayrollBase.metadata.tables == {}
+
+    db_generator = get_payroll_db()
+    db = next(db_generator)
+
+    try:
+        assert db.bind is payroll_engine
+    finally:
+        db_generator.close()
