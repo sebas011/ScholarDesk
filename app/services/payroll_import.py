@@ -180,16 +180,28 @@ def load_payroll_projection(path: str | Path) -> list[dict]:
 
 def audit_payroll_projection(
     records: list[dict],
+    workload_faculty_names: set[str],
 ) -> list[dict]:
+    known_names = {
+        name.strip().casefold()
+        for name in workload_faculty_names
+        if name.strip()
+    }
     audited = []
 
     for record in records:
-        status = "matched"
-        reason = ""
+        name = record["name"].strip()
+        normalized_name = name.casefold()
 
-        if not record["name"]:
+        if not name:
             status = "unresolved"
             reason = "Faculty name is blank in the source workbook."
+        elif normalized_name not in known_names:
+            status = "unresolved"
+            reason = "Faculty name was not found in the workload workbook."
+        else:
+            status = "matched"
+            reason = ""
 
         audited.append(
             {

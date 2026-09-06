@@ -1877,23 +1877,23 @@ def test_load_payroll_projection_reads_consolidated_sheet(tmp_path):
     assert records[0]["source_row"] == 7
 
 
-def test_audit_payroll_projection_flags_blank_names():
+def test_audit_payroll_projection_requires_workload_name_match():
     records = [
-        {
-            "number": 1,
-            "name": "",
-            "position": "Instructor I",
-        },
-        {
-            "number": 2,
-            "name": "Name 2",
-            "position": "Instructor I",
-        },
+        {"number": 1, "name": "", "position": "Instructor I"},
+        {"number": 2, "name": "Name 2", "position": "Instructor I"},
+        {"number": 3, "name": "Name 3", "position": "Instructor I"},
     ]
 
-    audited = audit_payroll_projection(records)
+    audited = audit_payroll_projection(
+        records,
+        {"Name 2"},
+    )
 
     assert audited[0]["match_status"] == "unresolved"
     assert "blank" in audited[0]["match_reason"]
+
     assert audited[1]["match_status"] == "matched"
     assert audited[1]["match_reason"] == ""
+
+    assert audited[2]["match_status"] == "unresolved"
+    assert "not found" in audited[2]["match_reason"]
