@@ -39,6 +39,7 @@ from app.core.logging import JsonFormatter
 from app.core.auth import verify_credentials
 
 from app.main import on_unhandled_exception
+from app.services.payroll_import import load_workload_assignments
 
 import json
 import logging
@@ -1758,3 +1759,42 @@ def test_parse_lab_units_handles_weighted_values():
 def derive_hourly_rate(monthly_salary, standard_weekly_hours=STANDARD_WEEKLY_HOURS):
     monthly = Decimal(str(monthly_salary))
     return monthly / (Decimal("4.33") * Decimal(str(standard_weekly_hours)))
+
+
+def test_load_workload_assignments_forward_fills_grouped_fields(tmp_path):
+    import pandas as pd
+
+    path = tmp_path / "workload.xlsx"
+    frame = pd.DataFrame(
+        [
+            ["Workload report"] + [""] * 19,
+            ["Grouped faculty data"] + [""] * 19,
+            [
+                "College", "Program", "Campus", "Faculty", "Academic Rank",
+                "Educational Qualification", "Designation/ Other Assignments",
+                "Course Code", "Descriptive Title", "Program/ Year/ Section",
+                "Lec", "Lab", "Total", "Type of Load",
+                "Total Teaching Load", "No.   of Preps",
+                "ETU for Designation/ Assignment", "Total Workload",
+                "Over-load", "Remarks",
+            ],
+            [
+                "COED", "BSIT", "Talisay", "Test Faculty", "Instructor I",
+                "", "Chair", "COURSE101", "Testing", "BSIT 1A",
+                3, 0, 3, "Regular", 18, 3, 6, 24, 6, "",
+            ],
+            [
+                "", "", "", "", "", "", "", "COURSE102", "Testing 2",
+                "BSIT 1B", 2, 4, 5, "Regular", "", "", "", "", "", "",
+            ],
+        ]
+    )
+    frame.to_excel(path, sheet_name="Consolidated", header=False, index=False)
+
+    assignments = load_workload_assignments(path)
+
+    assert len(assignments) == 2
+    assert assignments[1]["faculty"] == "Test Faculty"
+    assert assignments[1]["position"] == "Instructor I"
+    assert assignments[1]["lecture"] == Decimal("2")
+    assert assignments[1]["lab"] == Decimal("4")
