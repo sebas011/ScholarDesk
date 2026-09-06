@@ -46,7 +46,7 @@ from app.payroll_models import PayrollProjectionRecord
 import json
 import logging
 from app.payroll_models import PayrollAuditRecord
-
+from app.services.payroll_store import replace_payroll_audits
 from app.payroll_database import (
     PayrollBase,
     get_payroll_db,
@@ -2042,6 +2042,34 @@ def test_payroll_store_replaces_imported_records():
         assert projection_count == 1
         assert db.query(PayrollWorkloadAssignment).count() == 1
         assert db.query(PayrollProjectionRecord).count() == 1
+    finally:
+        db.close()
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_payroll_store_replaces_audit_records():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+    db = TestSession(bind=payroll_engine)
+
+    try:
+        count = replace_payroll_audits(
+            db,
+            [
+                {
+                    "source_row": 7,
+                    "number": 1,
+                    "match_status": "unresolved",
+                    "match_reason": "Faculty name is blank in the source workbook.",
+                }
+            ],
+        )
+
+        saved = db.query(PayrollAuditRecord).one()
+
+        assert count == 1
+        assert saved.source_row == 7
+        assert saved.payroll_number == 1
+        assert saved.match_status == "unresolved"
     finally:
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
