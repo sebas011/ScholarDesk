@@ -51,12 +51,26 @@ def main():
         uvicorn.run("app.main:app", **kwargs)
         return
 
-    edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
     profile_dir = tempfile.mkdtemp(prefix="scholardesk-edge-")
     config = uvicorn.Config("app.main:app", **kwargs)
     server = uvicorn.Server(config)
 
     def launch_and_monitor_browser():
+        import os
+        import webbrowser
+        edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+
+        if not os.path.exists(edge):
+            # Edge isn't at the expected path on this machine - fall back
+            # to whatever the user's actual default browser is, same as
+            # the original (non-auto-shutdown) behavior. No window to
+            # monitor in this case, so should_exit is never set here;
+            # the person closes the app the normal way (Ctrl+C, Task
+            # Manager, etc.) same as any other background server.
+            webbrowser.open(url)
+            shutil.rmtree(profile_dir, ignore_errors=True)
+            return
+
         try:
             browser = subprocess.Popen(
                 [
