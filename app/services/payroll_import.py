@@ -176,3 +176,27 @@ def load_payroll_projection(path: str | Path) -> list[dict]:
         )
 
     return records
+
+
+def audit_payroll_projection(
+    records: list[dict],
+) -> list[dict]:
+    audited = []
+
+    for record in records:
+        status = "matched"
+        reason = ""
+
+        if not record["name"]:
+            status = "unresolved"
+            reason = "Faculty name is blank in the source workbook."
+
+        audited.append(
+            {
+                **record,
+                "match_status": status,
+                "match_reason": reason,
+            }
+        )
+
+    return audited

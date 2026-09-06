@@ -34,7 +34,7 @@ from starlette.requests import Request
 from decimal import Decimal
 from app.services.payroll import parse_lab_units
 from unittest.mock import patch
-
+from app.services.payroll_import import audit_payroll_projection
 from app.core.logging import JsonFormatter
 from app.core.auth import verify_credentials
 
@@ -1875,3 +1875,25 @@ def test_load_payroll_projection_reads_consolidated_sheet(tmp_path):
     assert records[0]["teaching_load"] == Decimal("24")
     assert records[0]["hours_overload"] == Decimal("108")
     assert records[0]["source_row"] == 7
+
+
+def test_audit_payroll_projection_flags_blank_names():
+    records = [
+        {
+            "number": 1,
+            "name": "",
+            "position": "Instructor I",
+        },
+        {
+            "number": 2,
+            "name": "Name 2",
+            "position": "Instructor I",
+        },
+    ]
+
+    audited = audit_payroll_projection(records)
+
+    assert audited[0]["match_status"] == "unresolved"
+    assert "blank" in audited[0]["match_reason"]
+    assert audited[1]["match_status"] == "matched"
+    assert audited[1]["match_reason"] == ""
