@@ -42,9 +42,10 @@ from app.main import on_unhandled_exception
 from app.services.payroll_import import load_workload_assignments
 from app.services.payroll_import import load_payroll_projection
 from app.payroll_models import PayrollWorkloadAssignment
-
+from app.payroll_models import PayrollProjectionRecord
 import json
 import logging
+from app.payroll_models import PayrollAuditRecord
 
 from app.payroll_database import (
     PayrollBase,
@@ -1943,5 +1944,29 @@ def test_payroll_workload_schema_is_separate():
         )
         assert "course_code" in PayrollWorkloadAssignment.__table__.columns
         assert "faculty" in PayrollWorkloadAssignment.__table__.columns
+    finally:
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_payroll_projection_schema_is_separate():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+
+    try:
+        assert PayrollProjectionRecord.__tablename__ == (
+            "payroll_projection_records"
+        )
+        assert "name" in PayrollProjectionRecord.__table__.columns
+        assert "net_amount_due" in PayrollProjectionRecord.__table__.columns
+    finally:
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_payroll_audit_schema_is_separate():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+
+    try:
+        assert PayrollAuditRecord.__tablename__ == "payroll_audit_records"
+        assert "match_status" in PayrollAuditRecord.__table__.columns
+        assert "created_at" in PayrollAuditRecord.__table__.columns
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
