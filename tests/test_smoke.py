@@ -48,6 +48,7 @@ import logging
 from app.payroll_models import PayrollAuditRecord
 from app.services.payroll_store import replace_payroll_audits
 from app.services.payroll_import_service import import_payroll_workbooks
+from app.payroll_database import initialize_payroll_database
 
 from app.payroll_database import (
     PayrollBase,
@@ -2155,4 +2156,17 @@ def test_import_payroll_workbooks_stores_anonymized_inputs(tmp_path):
         assert db.query(PayrollAuditRecord).count() == 1
     finally:
         db.close()
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_initialize_payroll_database_creates_payroll_tables():
+    PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+    initialize_payroll_database()
+
+    try:
+        assert "payroll_workload_assignments" in PayrollBase.metadata.tables
+        assert "payroll_projection_records" in PayrollBase.metadata.tables
+        assert "payroll_audit_records" in PayrollBase.metadata.tables
+    finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
