@@ -35,13 +35,17 @@ from decimal import Decimal
 from app.services.payroll import parse_lab_units
 from unittest.mock import patch
 
-import json
-import logging
-
 from app.core.logging import JsonFormatter
 from app.core.auth import verify_credentials
 
 from app.main import on_unhandled_exception
+
+import json
+import logging
+
+STANDARD_WEEKLY_HOURS = 40
+
+
 
 # StaticPool keeps a single connection alive for the whole test run -
 
@@ -1749,3 +1753,8 @@ def test_parse_lab_units_handles_weighted_values():
     assert parse_lab_units("5 (4.25)") == Decimal("4.25")
     assert parse_lab_units("4") == Decimal("3.00")
     assert parse_lab_units("4.25") == Decimal("4.25")
+
+
+def derive_hourly_rate(monthly_salary, standard_weekly_hours=STANDARD_WEEKLY_HOURS):
+    monthly = Decimal(str(monthly_salary))
+    return monthly / (Decimal("4.33") * Decimal(str(standard_weekly_hours)))

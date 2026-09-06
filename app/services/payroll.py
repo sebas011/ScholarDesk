@@ -1,6 +1,6 @@
 from decimal import Decimal
 import re
-
+from app.core.payroll_config import SEMESTER_WEEKS
 
 def parse_lab_units(value) -> Decimal:
     text = str(value or "").strip()
@@ -61,6 +61,10 @@ def calculate_payroll(
         "amount_due": amount_due,
         "withholding_amount": withholding,
         "net_amount_due": amount_due - withholding,
-        "semester_salary": hours_overload * Decimal(str(salary_rate_per_hour or 0)) * Decimal("18"),
+        "semester_salary": (
+            hours_overload
+            * Decimal(str(salary_rate_per_hour or 0))
+            * SEMESTER_WEEKS
+        ),
         "overload_cap_flag": total_workload >= Decimal("30"),
     }
