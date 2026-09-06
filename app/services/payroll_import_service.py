@@ -8,9 +8,7 @@ from app.services.payroll_import import (
     load_workload_assignments,
 )
 from app.services.payroll_store import (
-    replace_payroll_audits,
-    replace_payroll_projections,
-    replace_workload_assignments,
+    replace_payroll_import,
 )
 
 
@@ -32,9 +30,12 @@ def import_payroll_workbooks(
         workload_names,
     )
 
-    replace_workload_assignments(db, workload_records)
-    replace_payroll_projections(db, projection_records)
-    replace_payroll_audits(db, audited_records)
+    replace_payroll_import(
+    db,
+    workload_records,
+    projection_records,
+    audited_records,
+)
 
     matched = sum(
         record["match_status"] == "matched"

@@ -2078,7 +2078,7 @@ def test_payroll_store_replaces_audit_records():
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
 
-def test_import_payroll_workbooks_stores_anonymized_inputs(tmp_path):
+def test_payroll_import_persists_all_datasets_in_one_transaction(tmp_path):
     import pandas as pd
 
     workload_path = tmp_path / "workload.xlsx"
@@ -2153,6 +2153,9 @@ def test_import_payroll_workbooks_stores_anonymized_inputs(tmp_path):
             "matched_records": 0,
             "unresolved_records": 1,
         }
+        assert db.query(PayrollWorkloadAssignment).count() == 1
+        assert db.query(PayrollProjectionRecord).count() == 1
+        assert db.query(PayrollAuditRecord).count() == 1
         assert db.query(PayrollAuditRecord).count() == 1
     finally:
         db.close()
@@ -2184,4 +2187,3 @@ def test_app_lifespan_initializes_payroll_database(monkeypatch):
         pass
 
     assert initialized == [True]
-
