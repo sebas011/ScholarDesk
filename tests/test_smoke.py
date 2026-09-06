@@ -31,7 +31,8 @@ from unittest.mock import Mock
 from app.database import Base, get_db
 from sqlalchemy.exc import OperationalError
 from starlette.requests import Request
-
+from decimal import Decimal
+from app.services.payroll import parse_lab_units
 from unittest.mock import patch
 
 import json
@@ -1742,3 +1743,9 @@ def test_unhandled_exception_returns_generic_500_response():
     assert response.body is not None
     assert b"Something went wrong. Please try again." in response.body
     assert b"internal implementation detail" not in response.body
+
+
+def test_parse_lab_units_handles_weighted_values():
+    assert parse_lab_units("5 (4.25)") == Decimal("4.25")
+    assert parse_lab_units("4") == Decimal("3.00")
+    assert parse_lab_units("4.25") == Decimal("4.25")

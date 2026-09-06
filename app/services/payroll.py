@@ -4,11 +4,16 @@ import re
 
 def parse_lab_units(value) -> Decimal:
     text = str(value or "").strip()
-    match = re.search(r"\d+(?:\.\d+)?", text)
-    if not match:
-        return Decimal("0")
+    parenthesized = re.search(r"\(\s*(\d+(?:\.\d+)?)\s*\)", text)
 
-    number = Decimal(match.group())
+    if parenthesized:
+        number = Decimal(parenthesized.group(1))
+    else:
+        match = re.search(r"\d+(?:\.\d+)?", text)
+        if not match:
+            return Decimal("0")
+        number = Decimal(match.group())
+
     return number * Decimal("0.75") if number == number.to_integral_value() else number
 
 
