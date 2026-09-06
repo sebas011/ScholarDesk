@@ -56,24 +56,28 @@ def replace_payroll_import(
     projection_records: list[dict],
     audit_records: list[dict],
 ) -> None:
-    db.query(PayrollAuditRecord).delete()
-    db.query(PayrollProjectionRecord).delete()
-    db.query(PayrollWorkloadAssignment).delete()
+    try:
+        db.query(PayrollAuditRecord).delete()
+        db.query(PayrollProjectionRecord).delete()
+        db.query(PayrollWorkloadAssignment).delete()
 
-    for record in workload_records:
-        db.add(PayrollWorkloadAssignment(**record))
+        for record in workload_records:
+            db.add(PayrollWorkloadAssignment(**record))
 
-    for record in projection_records:
-        db.add(PayrollProjectionRecord(**record))
+        for record in projection_records:
+            db.add(PayrollProjectionRecord(**record))
 
-    for record in audit_records:
-        db.add(
-            PayrollAuditRecord(
-                source_row=record["source_row"],
-                payroll_number=record.get("number"),
-                match_status=record["match_status"],
-                match_reason=record["match_reason"],
+        for record in audit_records:
+            db.add(
+                PayrollAuditRecord(
+                    source_row=record["source_row"],
+                    payroll_number=record.get("number"),
+                    match_status=record["match_status"],
+                    match_reason=record["match_reason"],
+                )
             )
-        )
 
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
