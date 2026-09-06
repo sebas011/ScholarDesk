@@ -15,6 +15,8 @@ from app.core.logging import logger
 
 from app.core.auth import verify_credentials
 
+from app.payroll_database import initialize_payroll_database
+
 configure_logging()
 
 
@@ -22,6 +24,7 @@ configure_logging()
 async def lifespan(_: FastAPI):
     """Initialize the portable app database and release connections on shutdown."""
     Base.metadata.create_all(bind=engine)
+    initialize_payroll_database()
     logger.info("Grant Tracker started successfully.")
     try:
         yield

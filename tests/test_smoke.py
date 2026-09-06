@@ -2170,3 +2170,18 @@ def test_initialize_payroll_database_creates_payroll_tables():
         assert "payroll_audit_records" in PayrollBase.metadata.tables
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_app_lifespan_initializes_payroll_database(monkeypatch):
+    initialized = []
+
+    monkeypatch.setattr(
+        "app.main.initialize_payroll_database",
+        lambda: initialized.append(True),
+    )
+
+    with TestClient(app):
+        pass
+
+    assert initialized == [True]
+
