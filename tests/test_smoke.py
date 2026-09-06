@@ -53,6 +53,11 @@ from app.payroll_database import (
     payroll_engine,
 )
 
+from app.services.payroll_store import (
+    replace_payroll_projections,
+    replace_workload_assignments,
+)
+
 STANDARD_WEEKLY_HOURS = 40
 
 
@@ -1969,4 +1974,74 @@ def test_payroll_audit_schema_is_separate():
         assert "match_status" in PayrollAuditRecord.__table__.columns
         assert "created_at" in PayrollAuditRecord.__table__.columns
     finally:
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_payroll_store_replaces_imported_records():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+    db = TestSession(bind=payroll_engine)
+
+    try:
+        workload_count = replace_workload_assignments(
+            db,
+            [
+                {
+                    "source_row": 4,
+                    "college": "COED",
+                    "program": "BSIT",
+                    "campus": "Talisay",
+                    "faculty": "",
+                    "position": "Instructor I",
+                    "designation": "",
+                    "course_code": "COURSE101",
+                    "course_title": "Testing",
+                    "section": "BSIT 1A",
+                    "lecture": Decimal("3"),
+                    "lab": Decimal("0"),
+                    "load_type": "Regular",
+                    "source_total_teaching_load": Decimal("3"),
+                    "source_no_of_preps": 1,
+                    "source_etu": Decimal("0"),
+                    "source_total_workload": Decimal("3"),
+                    "source_overload": Decimal("0"),
+                    "remarks": "",
+                }
+            ],
+        )
+
+        projection_count = replace_payroll_projections(
+            db,
+            [
+                {
+                    "source_row": 7,
+                    "number": 1,
+                    "name": "",
+                    "position": "Instructor I",
+                    "campus": "Talisay",
+                    "college": "COED",
+                    "program": "BSIT",
+                    "teaching_load": Decimal("24"),
+                    "preps": 1,
+                    "excess_hours_per_week": Decimal("3"),
+                    "total_weeks": Decimal("18"),
+                    "weeks_absent": Decimal("0"),
+                    "net_overload_weeks": Decimal("18"),
+                    "hours_overload": Decimal("54"),
+                    "salary_rate_month": Decimal("30000"),
+                    "salary_rate_hour": Decimal("166.67"),
+                    "amount_due": Decimal("9000"),
+                    "withholding_tax_rate": Decimal("0.1"),
+                    "withholding_tax": Decimal("900"),
+                    "net_amount_due": Decimal("8100"),
+                    "semester_salary": Decimal("9000"),
+                }
+            ],
+        )
+
+        assert workload_count == 1
+        assert projection_count == 1
+        assert db.query(PayrollWorkloadAssignment).count() == 1
+        assert db.query(PayrollProjectionRecord).count() == 1
+    finally:
+        db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
