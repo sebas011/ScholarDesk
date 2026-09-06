@@ -317,6 +317,8 @@ def test_dashboard_page_loads_with_data(client):
     assert resp.status_code == 200
     assert "Dashboard Test Scholar" in resp.text
     assert "CAS" in resp.text
+    assert 'href="/scholars/1"' in resp.text
+    assert 'href="/scholars?scholar_id=1"' not in resp.text
 
 
 def test_scholar_detail_page_with_grants_renders_without_context_forwarding_crash(client):

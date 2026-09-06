@@ -14,7 +14,7 @@
             {% for s in scholars %}
             <tr class="group hover:bg-slate-50 transition-colors">
                 <td class="py-3 px-4">
-                    <a href="/scholars?scholar_id={{ s.id }}" class="font-semibold text-navy-900 hover:text-indigo-600 transition-colors">
+                    <a href="/scholars/{{ s.id }}" class="font-semibold text-navy-900 hover:text-indigo-600 transition-colors">
                         {{ s.name }}
                     </a>
                     {% if s.missing_requirements %}
@@ -31,7 +31,7 @@
                     {% endif %}
                 </td>
                 <td class="py-3 px-4 text-right whitespace-nowrap">
-                    <a href="/scholars?scholar_id={{ s.id }}" class="btn btn-secondary btn-sm">View Profile</a>
+                    <a href="/scholars/{{ s.id }}" class="btn btn-secondary btn-sm">View Profile</a>
                 </td>
             </tr>
             {% endfor %}
