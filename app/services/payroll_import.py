@@ -135,13 +135,14 @@ def load_payroll_projection(path: str | Path) -> list[dict]:
     records = []
     for row_number, (_, row) in enumerate(frame.iterrows(), start=7):
         name = _text(row.get("Name"))
-        if not name:
+        number = _integer(row.get("No."))
+        if not name and number is None:
             continue
 
         records.append(
             {
                 "source_row": row_number,
-                "number": _integer(row.get("No.")),
+                "number": number,
                 "name": name,
                 "position": _text(row.get("Position")),
                 "campus": _text(row.get("Campus")),
