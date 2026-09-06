@@ -93,3 +93,18 @@ tests/
   test_smoke.py         Automated version of the manual test cycle used
                          during development
 ```
+## Database, Backups, and Migrations
+
+ScholarDesk stores its SQLite database in `grants.db`, next to the executable. The
+local configuration files `auth.txt` and `network.txt` are stored in the same
+directory.
+
+Stop ScholarDesk before copying or restoring the database.
+
+### Backup
+
+Create a timestamped backup from the application directory:
+
+```powershell
+New-Item -ItemType Directory -Force backups
+Copy-Item grants.db "backups\grants-$(Get-Date -Format yyyyMMdd-HHmmss).db"
