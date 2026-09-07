@@ -19,7 +19,5 @@ def launcher(request: Request):
 
 
 @router.get("/payroll", response_class=HTMLResponse)
-def payroll_placeholder(request: Request):
-    """Placeholder until the Faculty Workload & Payroll module exists -
-    keeps the launcher's link from 404ing in the meantime."""
-    return templates.TemplateResponse(request, "payroll_placeholder.html", {})
+def payroll_import_page(request: Request):
+    return templates.TemplateResponse(request, "payroll_import.html", {})

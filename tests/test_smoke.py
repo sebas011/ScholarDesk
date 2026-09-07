@@ -59,6 +59,7 @@ from app.payroll_database import (
 from app.services.payroll_store import (
     replace_payroll_projections,
     replace_workload_assignments,
+    replace_payroll_import,
 )
 
 STANDARD_WEEKLY_HOURS = 40
@@ -2187,3 +2188,40 @@ def test_app_lifespan_initializes_payroll_database(monkeypatch):
         pass
 
     assert initialized == [True]
+
+
+def test_payroll_import_rolls_back_on_invalid_record():
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+    db = TestSession(bind=payroll_engine)
+
+    try:
+        with pytest.raises(Exception):
+            replace_payroll_import(
+                db,
+                workload_records=[],
+                projection_records=[
+                    {
+                        "source_row": 7,
+                        "number": 1,
+                        # omit required fields deliberately
+                    }
+                ],
+                audit_records=[],
+            )
+
+        assert db.query(PayrollProjectionRecord).count() == 0
+        assert db.query(PayrollWorkloadAssignment).count() == 0
+        assert db.query(PayrollAuditRecord).count() == 0
+    finally:
+        db.close()
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
+
+
+def test_payroll_page_renders_import_shell(client):
+    response = client.get("/payroll")
+
+    assert response.status_code == 200
+    assert "Faculty Workload &amp; Payroll" in response.text
+    assert "Workload workbook" in response.text
+    assert "Payroll projection workbook" in response.text
+    assert "Import processing is being connected next." in response.text
