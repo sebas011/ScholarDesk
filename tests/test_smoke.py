@@ -2245,8 +2245,15 @@ def test_payroll_import_route_rejects_non_xlsx_upload(client):
 
 
 def test_payroll_results_page_renders(client):
-    response = client.get("/payroll/results")
+    PayrollBase.metadata.create_all(bind=payroll_engine)
+
+    try:
+        response = client.get("/payroll/results")
+    finally:
+        PayrollBase.metadata.drop_all(bind=payroll_engine)
 
     assert response.status_code == 200
     assert "Payroll import results" in response.text
-    assert "Import results will appear here after an import." in response.text
+    assert "Workload records: 0" in response.text
+    assert "Payroll records: 0" in response.text
+    assert "Unresolved identities: 0" in response.text
