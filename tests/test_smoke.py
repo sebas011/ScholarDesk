@@ -1933,7 +1933,11 @@ def test_payroll_database_uses_separate_sqlite_file():
     assert payroll_engine.url.database is not None
     assert payroll_engine.url.database.endswith("payroll.db")
     assert payroll_engine is not engine
-    assert PayrollBase.metadata.tables == {}
+    assert {
+    "payroll_workload_assignments",
+    "payroll_projection_records",
+    "payroll_audit_records",
+    }.issubset(PayrollBase.metadata.tables)
 
     db_generator = get_payroll_db()
     db = next(db_generator)
@@ -2224,4 +2228,25 @@ def test_payroll_page_renders_import_shell(client):
     assert "Faculty Workload &amp; Payroll" in response.text
     assert "Workload workbook" in response.text
     assert "Payroll projection workbook" in response.text
-    assert "Import processing is being connected next." in response.text
+    assert "Select both workbooks, then import them for local reconciliation." in response.text
+
+
+def test_payroll_import_route_rejects_non_xlsx_upload(client):
+    response = client.post(
+        "/payroll/import",
+        files={
+            "workload_file": ("workload.txt", b"not excel", "text/plain"),
+            "projection_file": ("projection.xlsx", b"not excel", "application/octet-stream"),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "must be an .xlsx file" in response.text
+
+
+def test_payroll_results_page_renders(client):
+    response = client.get("/payroll/results")
+
+    assert response.status_code == 200
+    assert "Payroll import results" in response.text
+    assert "Import results will appear here after an import." in response.text
