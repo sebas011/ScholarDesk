@@ -21,47 +21,69 @@
         </div>
 
         <div class="space-y-6">
-            <div>
-                <label class="form-label" for="workload-file">
-                    Workload workbook
-                </label>
-                <input
-                    id="workload-file"
-                    class="form-input"
-                    type="file"
-                    accept=".xlsx"
-                    disabled
-                >
-                <p class="text-xs text-slate-500 mt-1">
-                    Expected sheet: Consolidated
-                </p>
-            </div>
+            <form
+    action="/payroll/import"
+    method="post"
+    enctype="multipart/form-data"
+    class="space-y-6"
+>
+    <div>
+        <label class="form-label" for="workload-file">
+            Workload workbook
+        </label>
+        <input
+            id="workload-file"
+            name="workload_file"
+            class="form-input"
+            type="file"
+            accept=".xlsx"
+            required
+        >
+        <p class="text-xs text-slate-500 mt-1">
+            Expected sheet: Consolidated
+        </p>
+    </div>
 
-            <div>
-                <label class="form-label" for="projection-file">
-                    Payroll projection workbook
-                </label>
-                <input
-                    id="projection-file"
-                    class="form-input"
-                    type="file"
-                    accept=".xlsx"
-                    disabled
-                >
-                <p class="text-xs text-slate-500 mt-1">
-                    Expected sheet: Consolidated - Alphabetical
-                </p>
-            </div>
+    <div>
+        <label class="form-label" for="projection-file">
+            Payroll projection workbook
+        </label>
+        <input
+            id="projection-file"
+            name="projection_file"
+            class="form-input"
+            type="file"
+            accept=".xlsx"
+            required
+        >
+        <p class="text-xs text-slate-500 mt-1">
+            Expected sheet: Consolidated - Alphabetical
+        </p>
+    </div>
 
-            <div class="flex items-center gap-3">
-                <button class="btn btn-primary" type="button" disabled>
+                <div class="flex items-center gap-3">
+                <button class="btn btn-primary" type="submit">
                     Import workbooks
                 </button>
                 <span class="text-sm text-slate-500">
-                    Import processing is being connected next.
+                    Select both workbooks, then import them for local reconciliation.
                 </span>
             </div>
+</form>
         </div>
     </div>
+    {% if error %}
+<div class="mb-6 rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-800">
+    {{ error }}
+</div>
+{% endif %}
+
+{% if summary %}
+<div class="mb-6 rounded-md bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800">
+    Imported {{ summary.workload_records }} workload records and
+    {{ summary.projection_records }} payroll records.
+    Unresolved identities: {{ summary.unresolved_records }}.
+</div>
+{% endif %}
 </div>
 {% endblock %}
