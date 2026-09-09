@@ -444,8 +444,15 @@ def update_scholar(
 @router.delete("/scholars/{scholar_id}", response_class=HTMLResponse)
 def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_db)):
     try:
+        _log_activity(
+        db,
+        scholar_id,
+        "scholar",
+        "Scholar deleted",
+        )
+
         scholar_service.delete_scholar(db, scholar_id)
-        _log_activity(db, scholar_id, "scholar", "Scholar deleted")
+
         db.commit()
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
@@ -456,7 +463,7 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
         request,
         "partials/scholar_detail.html",
         {"scholar": None, "error": None, "notice": "Scholar deleted."},
-        headers={"HX-Trigger": "scholar-changed"},
+        headers={"HX-Trigger": "scholar-changed", "HX-Redirect": "/dashboard"},
     )
 
 

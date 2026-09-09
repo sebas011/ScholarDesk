@@ -48,7 +48,7 @@ class DepartmentAssignment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
     )
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     rank: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -67,7 +67,7 @@ class Grant(Base):
     __tablename__ = "grants"
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
     )
     program_applied: Mapped[str] = mapped_column(String(300), nullable=False)
     type_of_grant: Mapped[str | None] = mapped_column(String(150), nullable=True)
@@ -105,7 +105,7 @@ class ScholarNote(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
+        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
