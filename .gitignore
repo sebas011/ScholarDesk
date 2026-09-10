@@ -22,3 +22,10 @@ backups/
 .vscode/
 network.txt
 .coverage
+# Local payroll database runtime files
+payroll.db
+payroll.db-wal
+payroll.db-shm
+
+# Diagnostic backups such as grants.db.pre-delete-diagnostic.backup
+*.db.*.backup*
