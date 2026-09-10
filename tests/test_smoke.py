@@ -2678,3 +2678,30 @@ def test_assignment_update_rejects_malformed_end_date(client):
         assert unchanged.date_ended is None
     finally:
         db.close()
+
+def test_scholar_detail_renders_registered_assignment_action_urls(client):
+    client.post(
+        "/scholars",
+        data={"name": "Assignment Action URL Scholar", "department": "CCS"},
+    )
+
+    response = client.get(
+        "/scholars/1",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'hx-get="/scholars/1/assignments/1/edit"' in response.text
+    assert 'hx-delete="/scholars/1/assignments/1"' in response.text
+
+
+def test_assignment_edit_row_renders_registered_save_url(client):
+    client.post(
+        "/scholars",
+        data={"name": "Assignment Save URL Scholar", "department": "CCS"},
+    )
+
+    response = client.get("/scholars/1/assignments/1/edit")
+
+    assert response.status_code == 200
+    assert 'hx-post="/scholars/1/assignments/1"' in response.text

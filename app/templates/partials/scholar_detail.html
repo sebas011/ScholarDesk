@@ -100,10 +100,10 @@
                     <td>{{ a.date_started or "" }}</td><td>{{ a.date_ended or "" }}</td>
                     <td class="whitespace-nowrap">
                         <button type="button" class="btn btn-secondary btn-sm"
-                                hx-get="/assignments/{{ a.id }}/edit?scholar_id={{ scholar.id }}"
+                                hx-get="/scholars/{{ scholar.id }}/assignments/{{ a.id }}/edit"
                                 hx-target="#assignment-row-{{ a.id }}" hx-swap="outerHTML">Edit</button>
                         <button type="button" class="btn btn-danger btn-sm"
-                                hx-delete="/assignments/{{ a.id }}?scholar_id={{ scholar.id }}" hx-target="#scholar-detail"
+                                hx-delete="/scholars/{{ scholar.id }}/assignments/{{ a.id }}" hx-target="#scholar-detail"
                                 hx-confirm="Delete this assignment?">✕</button>
                     </td>
                 </tr>

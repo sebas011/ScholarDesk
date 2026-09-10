@@ -13,7 +13,7 @@
     <td class="py-2 px-3"><input name="date_ended" type="date" value="{{ assignment.date_ended or '' }}" class="form-input form-input-sm"></td>
     <td class="py-2 px-3 text-right whitespace-nowrap">
         <button type="button" class="btn btn-primary btn-sm"
-                hx-post="/assignments/{{ assignment.id }}?scholar_id={{ scholar_id }}"
+                hx-post="/scholars/{{ scholar_id }}/assignments/{{ assignment.id }}"
                 hx-include="#assignment-row-{{ assignment.id }} input"
                 hx-target="#scholar-detail">
             <span class="btn-spinner"></span>
