@@ -55,11 +55,11 @@
                 </div>
                 <div>
                     <label class="form-label">Date Started</label>
-                    <input name="date_started" type="date" class="form-input">
+                    <input name="date_started" type="date" value="{{ form.date_started or '' }}" class="form-input">
                 </div>
                 <div>
                     <label class="form-label">Date Ended</label>
-                    <input name="date_ended" type="date" class="form-input">
+                    <input name="date_ended" type="date" value="{{ form.date_ended or '' }}" class="form-input">
                 </div>
             </div>
         </div>
@@ -69,26 +69,23 @@
                 Initial Grant <span class="text-slate-400 font-normal normal-case">(Optional)</span>
             </h4>
         <div class="grid grid-cols-3 gap-4">
-        <div><label class="form-label">Program Applied</label><input name="program_applied" class="form-input"></div>
-        <div><label class="form-label">Type of Grant</label><input name="type_of_grant" class="form-input"></div>
-        <div><label class="form-label">Delivering HEI</label><input name="delivering_hei" class="form-input"></div>
-        <div><label class="form-label">Started</label><input name="grant_date_started" class="form-input"></div>
-        <div><label class="form-label">Ended</label><input name="grant_date_ended" class="form-input"></div>
-        <div><label class="form-label">Start Year</label><input name="start_year" type="number" class="form-input"></div>
-        <div><label class="form-label">End Year</label><input name="end_year" type="number" class="form-input"></div>
+        <div><label class="form-label">Program Applied</label><input name="program_applied" value="{{ form.program_applied or '' }}" class="form-input"></div>
+        <div><label class="form-label">Type of Grant</label><input name="type_of_grant" value="{{ form.type_of_grant or '' }}" class="form-input"></div>
+        <div><label class="form-label">Delivering HEI</label><input name="delivering_hei" value="{{ form.delivering_hei or '' }}" class="form-input"></div>
+        <div><label class="form-label">Started</label><input name="grant_date_started" value="{{ form.grant_date_started or '' }}" class="form-input"></div>
+        <div><label class="form-label">Ended</label><input name="grant_date_ended" value="{{ form.grant_date_ended or '' }}" class="form-input"></div>
+        <div><label class="form-label">Start Year</label><input name="start_year" type="number" value="{{ form.start_year or '' }}" class="form-input"></div>
+        <div><label class="form-label">End Year</label><input name="end_year" type="number" value="{{ form.end_year or '' }}" class="form-input"></div>
         <div>
             <label class="form-label">Status</label>
             <select name="grant_status" class="form-input form-select">
-                <option>Active</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
-                <option>Pending</option>
-                <option>On Hold</option>
-                <option>Withdrawn</option>
+            {% for status in ["Active", "Completed", "Cancelled", "Pending", "On Hold", "Withdrawn"] %}
+            <option {% if (form.grant_status or "Active") == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
             </select>
         </div>
-        <div><label class="form-label">Extension</label><input name="extension" class="form-input"></div>
-        <div class="col-span-3"><label class="form-label">Remarks</label><textarea name="remarks" rows="2" class="form-input"></textarea></div>
+        <div><label class="form-label">Extension</label><input name="extension" value="{{ form.extension or '' }}" class="form-input"></div>
+        <div class="col-span-3"><label class="form-label">Remarks</label><textarea name="remarks" rows="2" class="form-input">{{ form.remarks or '' }}</textarea></div>
         </div>
         </div>
 

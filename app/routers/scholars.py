@@ -12,6 +12,7 @@ from app.database import get_db
 from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
+from app.services import grants as grant_service
 from sqlalchemy import and_, or_
 from app.models import DepartmentAssignment, Grant, Scholar, ActivityLog
 from app.core.exceptions import (
@@ -53,6 +54,16 @@ def _parse_optional_age(value: str) -> int | None:
     if not normalized.isdigit():
         raise ValueError("Age must be a whole number.")
     return int(normalized)
+
+def _parse_optional_assignment_date(value: str, field_name: str) -> date | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+
+    parsed = parse_date(normalized)
+    if parsed is None:
+        raise ValueError(f"{field_name} must be a valid date (YYYY-MM-DD).")
+    return parsed
 
 router = APIRouter()
 
@@ -282,6 +293,16 @@ def create_scholar_page(
     tenure: str = Form(""),
     date_started: str = Form(""),
     date_ended: str = Form(""),
+    program_applied: str = Form(""),
+    type_of_grant: str = Form(""),
+    delivering_hei: str = Form(""),
+    grant_date_started: str = Form(""),
+    grant_date_ended: str = Form(""),
+    start_year: str = Form(""),
+    end_year: str = Form(""),
+    grant_status: str = Form("Active"),
+    extension: str = Form(""),
+    remarks: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Dedicated create page's submit target. Unlike POST /scholars
@@ -289,6 +310,7 @@ def create_scholar_page(
     post - success redirects to a real new URL (a full page reload,
     not an in-place swap); failure re-renders this same page with the
     error and the entered values preserved, at 400, per spec."""
+    error = None
     try:
         scholar = scholar_service.create_scholar(
             db,
@@ -304,19 +326,61 @@ def create_scholar_page(
                 department,
                 rank,
                 tenure,
-                parse_date(date_started) or date.today(),
-                parse_date(date_ended),
+                _parse_optional_assignment_date(date_started, "Start date") or date.today(),
+                _parse_optional_assignment_date(date_ended, "End date"),
+            )
+        grant_details_entered = any(
+            value.strip()
+            for value in (
+                type_of_grant,
+                delivering_hei,
+                grant_date_started,
+                grant_date_ended,
+                start_year,
+                end_year,
+                extension,
+                remarks,
+            )
+        )
+
+        if grant_details_entered and not program_applied.strip():
+            raise ValueError("Program applied is required when adding an initial grant.")
+
+        if program_applied.strip():
+            grant_service.create_grant(
+                db,
+                scholar.id,
+                program_applied,
+                type_of_grant,
+                delivering_hei,
+                grant_date_started,
+                grant_date_ended,
+                int(start_year) if start_year.strip().isdigit() else None,
+                int(end_year) if end_year.strip().isdigit() else None,
+                extension,
+                grant_status,
+                remarks,
+            )
+
+            _log_activity(
+                db,
+                scholar.id,
+                "grant",
+                f"Initial grant added: {program_applied.strip()}",
             )
         _log_activity(db, scholar.id, "scholar", f"Scholar '{scholar.name}' created")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
         db.rollback()
+        error = str(e)
+
+    if error:
         return templates.TemplateResponse(
             request,
             "scholar_new.html",
             {
-                "error": str(e),
+                "error": error,
                 "form": {
                     "name": name,
                     "age": age,
@@ -324,6 +388,18 @@ def create_scholar_page(
                     "department": department,
                     "rank": rank,
                     "tenure": tenure,
+                    "program_applied": program_applied,
+                    "type_of_grant": type_of_grant,
+                    "delivering_hei": delivering_hei,
+                    "grant_date_started": grant_date_started,
+                    "grant_date_ended": grant_date_ended,
+                    "start_year": start_year,
+                    "end_year": end_year,
+                    "grant_status": grant_status,
+                    "extension": extension,
+                    "remarks": remarks,
+                    "date_started": date_started,
+                    "date_ended": date_ended,
                 },
             },
             status_code=400,
@@ -386,8 +462,8 @@ def create_scholar(
                 department,
                 rank,
                 tenure,
-                parse_date(date_started) or date.today(),
-                parse_date(date_ended),
+                _parse_optional_assignment_date(date_started, "Start date") or date.today(),
+                _parse_optional_assignment_date(date_ended, "End date"),
             )
         db.commit()
         db.refresh(scholar)

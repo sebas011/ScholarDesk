@@ -2755,3 +2755,114 @@ def test_scholar_update_rejects_nonnumeric_age(client):
         assert scholar.age == 25
     finally:
         db.close()
+
+def test_new_scholar_page_creates_initial_grant(client):
+    response = client.post(
+        "/scholars/new",
+        data={
+            "name": "Scholar With Initial Grant",
+            "department": "CCS",
+            "program_applied": "CHED Merit Scholarship",
+            "type_of_grant": "Merit",
+            "delivering_hei": "Example University",
+            "grant_date_started": "2024-06-01",
+            "grant_date_ended": "2025-05-31",
+            "start_year": "2024",
+            "end_year": "2025",
+            "grant_status": "Active",
+            "remarks": "Created from standalone form",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard"
+
+    db = TestSession()
+    try:
+        scholar = db.query(Scholar).filter_by(name="Scholar With Initial Grant").one()
+        grant = db.query(Grant).filter_by(scholar_id=scholar.id).one()
+        assert grant.program_applied == "CHED Merit Scholarship"
+        assert grant.start_year == 2024
+        assert grant.end_year == 2025
+        assert grant.remarks == "Created from standalone form"
+    finally:
+        db.close()
+
+
+def test_new_scholar_page_rejects_initial_grant_without_program(client):
+    response = client.post(
+        "/scholars/new",
+        data={
+            "name": "Incomplete Initial Grant Scholar",
+            "type_of_grant": "Merit",
+            "start_year": "2024",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Program applied is required when adding an initial grant." in response.text
+    assert 'value="Merit"' in response.text
+    assert 'value="2024"' in response.text
+
+    db = TestSession()
+    try:
+        assert (
+            db.query(Scholar)
+            .filter_by(name="Incomplete Initial Grant Scholar")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
+
+def test_new_scholar_page_rejects_malformed_initial_assignment_date(client):
+    response = client.post(
+        "/scholars/new",
+        data={
+            "name": "Malformed Standalone Assignment Date",
+            "department": "CCS",
+            "date_started": "2025-02-30",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Start date must be a valid date (YYYY-MM-DD)." in response.text
+    assert 'value="2025-02-30"' in response.text
+
+    db = TestSession()
+    try:
+        assert (
+            db.query(Scholar)
+            .filter_by(name="Malformed Standalone Assignment Date")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
+
+
+def test_htmx_scholar_create_rejects_malformed_initial_assignment_date(client):
+    response = client.post(
+        "/scholars",
+        data={
+            "name": "Malformed HTMX Assignment Date",
+            "department": "CCS",
+            "date_started": "2025-01-01",
+            "date_ended": "not-a-date",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "End date must be a valid date (YYYY-MM-DD)." in response.text
+
+    db = TestSession()
+    try:
+        assert (
+            db.query(Scholar)
+            .filter_by(name="Malformed HTMX Assignment Date")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
