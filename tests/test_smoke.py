@@ -23,10 +23,9 @@ from app.database import _set_sqlite_pragmas
 from app.services import grants as grant_service
 from app.models import DepartmentAssignment, Grant, GrantReview, Scholar
 from app.services import scholars as scholar_service
-from app.services.scholars import ScholarNotFoundError
+from app.core.exceptions import InvalidScholarError, ScholarNotFoundError
 from app.services import departments as dept_service
 from app.services import notes as note_service
-from app.services.notes import InvalidScholarError
 from app.services import stats as stats_service
 from app.main import app
 from unittest.mock import Mock
@@ -1429,14 +1428,18 @@ def test_add_scholar_note_unexpected_error_shows_generic_error(client, monkeypat
 
     monkeypatch.setattr(note_service, "add_note", fail_add_note)
 
-    response = client.post(
+    non_raising_client = TestClient(app, raise_server_exceptions=False)
+    try:
+        response = non_raising_client.post(
         "/scholars/1/notes",
         data={"content": "Test note"},
     )
+    finally:
+        non_raising_client.close()
 
-    assert response.status_code == 200
-    assert "Could not add note - scholar may not exist." in response.text
-
+    assert response.status_code == 500
+    assert "Something went wrong. Please try again." in response.text
+    assert "unexpected note failure" not in response.text
 
 def test_add_grant_review_route_success(client):
     client.post(
@@ -2938,3 +2941,15 @@ def test_assignment_edit_cannot_target_another_scholar(client):
 
     assert response.status_code == 404
     assert "Owner Only Department" not in response.text
+
+def test_blank_note_shows_validation_error(client):
+    client.post("/scholars", data={"name": "Blank Note Scholar"})
+
+    response = client.post(
+        "/scholars/1/notes",
+        data={"content": "   "},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert "Note cannot be empty." in response.text

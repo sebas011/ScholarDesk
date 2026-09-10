@@ -18,7 +18,7 @@ from app.services import notes as note_service
 from app.models import ActivityLog
 from app.services import departments as dept_service
 from app.services import grants as grant_service
-from app.services.scholars import ScholarNotFoundError
+from app.core.exceptions import InvalidScholarError, ScholarNotFoundError
 from app.utils.dates import parse_date
 
 router = APIRouter()
@@ -292,14 +292,9 @@ def add_scholar_note(
         note_service.add_note(db, scholar_id, content)
         _log_activity(db, scholar_id, "note", "Note added by user")
         db.commit()
-    except ScholarNotFoundError as e:
+    except (InvalidScholarError, ScholarNotFoundError) as exc:
         db.rollback()
-        return _render_scholar_detail(request, db, scholar_id, error=str(e))
-    except Exception:
-        db.rollback()
-        return _render_scholar_detail(
-            request, db, scholar_id, error="Could not add note - scholar may not exist."
-        )
+        return _render_scholar_detail(request, db, scholar_id, error=str(exc))
     return _render_scholar_detail(request, db, scholar_id, notice="Note added.")
 
 
