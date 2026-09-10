@@ -680,8 +680,8 @@ def test_update_and_delete_grant(db_session):
     db_session.commit()
 
     updated = grant_service.update_grant(
-        db_session, grant.id, " Updated Grant ", None, None, None, None,
-        2025, 2026, None, "Completed", " Updated remarks ",
+    db_session, scholar.id, grant.id, " Updated Grant ", None, None, None, None,
+    2025, 2026, None, "Completed", " Updated remarks ",
     )
     assert updated.program_applied == "Updated Grant"
     assert updated.start_year == 2025
@@ -689,7 +689,7 @@ def test_update_and_delete_grant(db_session):
     assert updated.status == "Completed"
     assert updated.remarks == "Updated remarks"
 
-    grant_service.delete_grant(db_session, grant.id)
+    grant_service.delete_grant(db_session, scholar.id, grant.id)
     db_session.commit()
     assert db_session.get(Grant, grant.id) is None
 
@@ -706,7 +706,7 @@ def test_review_sets_decided_at_for_non_pending_decision(db_session):
     db_session.commit()
 
     review = grant_service.add_review(
-        db_session, grant.id, "approved", None, None, None
+    db_session, scholar.id, grant.id, "approved", None, None
     )
 
     assert review.decided_at is not None
@@ -755,16 +755,16 @@ def test_create_grant_rejects_overlong_optional_fields(
 
 
 def test_update_grant_rejects_missing_grant(db_session):
-    with pytest.raises(ValueError, match="Grant 999 not found"):
+    with pytest.raises(ValueError, match="Grant not found"):
         grant_service.update_grant(
-            db_session, 999, "Test Grant", None, None, None, None,
-            None, None, None, status="Active", remarks=None,
+        db_session, 1, 999, "Test Grant", None, None, None, None,
+        None, None, None, status="Active", remarks=None,
         )
 
 
 def test_delete_grant_rejects_missing_grant(db_session):
-    with pytest.raises(ValueError, match="Grant 999 not found"):
-        grant_service.delete_grant(db_session, 999)
+    with pytest.raises(ValueError, match="Grant not found"):
+        grant_service.delete_grant(db_session, 1, 999)
 
 def test_active_in_year_rejects_after_end_year():
     grant = Grant(start_year=2024, end_year=2025)
@@ -785,14 +785,36 @@ def test_update_grant_rejects_invalid_status(db_session):
     db_session.commit()
 
     grant = grant_service.create_grant(
-        db_session, scholar.id, "Test Grant", None, None, None, None,
-        None, None, None, "Active", None,
+        db_session,
+        scholar.id,
+        "Test Grant",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        "Active",
+        None,
     )
+    db_session.commit()
 
     with pytest.raises(ValueError, match="Invalid status"):
         grant_service.update_grant(
-            db_session, grant.id, "Test Grant", None, None, None, None,
-            None, None, None, "Unknown", None,
+            db_session,
+            scholar.id,
+            grant.id,
+            "Test Grant",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "Unknown",
+            None,
         )
 
 
@@ -805,7 +827,7 @@ def test_active_in_year_rejects_before_start():
 def test_add_review_rejects_missing_grant(db_session):
     with pytest.raises(ValueError, match="Grant not found"):
         grant_service.add_review(
-            db_session, 999, "approved", None, None
+        db_session, 1, 999, "approved", None, None
         )
 
 
@@ -832,7 +854,7 @@ def test_add_review_rejects_invalid_decision(db_session):
 
     with pytest.raises(ValueError, match="Invalid review decision"):
         grant_service.add_review(
-            db_session, grant.id, "invalid", None, None
+        db_session, scholar.id, grant.id, "invalid", None, None
         )
 
 
@@ -2476,3 +2498,58 @@ def test_validation_error_returns_error_partial_for_htmx_request(client):
     assert 'class="alert alert-error"' in response.text
     assert "<html" not in response.text
     assert "Please fill in: query.per_page" in response.text
+
+
+def test_create_assignment_rejects_end_before_start(db_session):
+    scholar = Scholar(name="Invalid Assignment Range Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    with pytest.raises(
+        ValueError,
+        match="Assignment end date cannot be before start date",
+    ):
+        dept_service.create_assignment(
+            db_session,
+            scholar.id,
+            "CCS",
+            None,
+            None,
+            date(2025, 1, 1),
+            date(2024, 12, 31),
+        )
+
+
+def test_update_assignment_rejects_end_before_start(db_session):
+    scholar = Scholar(name="Invalid Updated Assignment Range Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    assignment = dept_service.create_assignment(
+        db_session,
+        scholar.id,
+        "CCS",
+        None,
+        None,
+        date(2024, 1, 1),
+        None,
+    )
+    db_session.commit()
+
+    with pytest.raises(
+        ValueError,
+        match="Assignment end date cannot be before start date",
+    ):
+        dept_service.update_assignment(
+            db_session,
+            scholar.id,
+            assignment.id,
+            "CCS",
+            None,
+            None,
+            date(2025, 1, 1),
+            date(2024, 12, 31),
+        )
+
+    assert assignment.date_started == date(2024, 1, 1)
+    assert assignment.date_ended is None

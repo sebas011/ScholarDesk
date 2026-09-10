@@ -28,6 +28,10 @@ def _validate_field_lengths(department: str, rank: str | None, tenure: str | Non
     if tenure and len(tenure) > TENURE_MAX_LENGTH:
         raise ValueError(f"Tenure is too long (max {TENURE_MAX_LENGTH} characters).")
 
+def _validate_date_range(date_started: date | None, date_ended: date | None) -> None:
+    if date_started is not None and date_ended is not None and date_ended < date_started:
+        raise ValueError("Assignment end date cannot be before start date.")
+
 
 def list_for_scholar(db: Session, scholar_id: int) -> list[DepartmentAssignment]:
     return (
@@ -76,6 +80,7 @@ def create_assignment(
     rank = (rank or "").strip() or None
     tenure = (tenure or "").strip() or None
     _validate_field_lengths(department, rank, tenure)
+    _validate_date_range(date_started, date_ended)
     assignment = DepartmentAssignment(
         scholar_id=scholar_id,
         department=department,
@@ -109,6 +114,7 @@ def update_assignment(
     rank = (rank or "").strip() or None
     tenure = (tenure or "").strip() or None
     _validate_field_lengths(department, rank, tenure)
+    _validate_date_range(date_started, date_ended)
     assignment.department = department
     assignment.rank = rank
     assignment.tenure = tenure
