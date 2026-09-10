@@ -91,6 +91,7 @@ def create_assignment(
 
 def update_assignment(
     db: Session,
+    scholar_id: int,
     assignment_id: int,
     department: str,
     rank: str | None,
@@ -99,8 +100,8 @@ def update_assignment(
     date_ended: date | None,
 ) -> DepartmentAssignment:
     assignment = db.get(DepartmentAssignment, assignment_id)
-    if assignment is None:
-        raise ValueError(f"Assignment {assignment_id} not found.")
+    if assignment is None or assignment.scholar_id != scholar_id:
+        raise ValueError("Assignment not found.")
 
     department = (department or "").strip()
     if not department:
@@ -116,8 +117,8 @@ def update_assignment(
     return assignment
 
 
-def delete_assignment(db: Session, assignment_id: int) -> None:
+def delete_assignment(db: Session, scholar_id: int, assignment_id: int) -> None:
     assignment = db.get(DepartmentAssignment, assignment_id)
-    if assignment is None:
-        raise ValueError(f"Assignment {assignment_id} not found.")
+    if assignment is None or assignment.scholar_id != scholar_id:
+        raise ValueError("Assignment not found.")
     db.delete(assignment)

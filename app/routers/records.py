@@ -74,9 +74,9 @@ def add_assignment(
     return _render_scholar_detail(request, db, scholar_id, notice="Assignment added.")
 
 
-@router.get("/assignments/{assignment_id}/edit", response_class=HTMLResponse)
+@router.get("/scholars/{scholar_id}/assignments/{assignment_id}/edit", response_class=HTMLResponse)
 def edit_assignment_form(
-    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+    request: Request, scholar_id: int, assignment_id: int, db: Session = Depends(get_db)
 ):
     assignment = dept_service.get_assignment(db, assignment_id)
     return templates.TemplateResponse(
@@ -86,11 +86,11 @@ def edit_assignment_form(
     )
 
 
-@router.post("/assignments/{assignment_id}", response_class=HTMLResponse)
+@router.post("/scholars/{scholar_id}/assignments/{assignment_id}", response_class=HTMLResponse)
 def update_assignment_route(
     request: Request,
-    assignment_id: int,
     scholar_id: int,
+    assignment_id: int | None = None,
     department: str = Form(...),
     rank: str = Form(""),
     tenure: str = Form(""),
@@ -98,10 +98,16 @@ def update_assignment_route(
     date_ended: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    if assignment_id is None:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Assignment ID is required."
+        )
+
     assignment = dept_service.get_assignment(db, assignment_id)
     try:
         dept_service.update_assignment(
             db,
+            scholar_id,
             assignment_id,
             department,
             rank,
@@ -113,6 +119,8 @@ def update_assignment_route(
         db.commit()
     except ValueError as e:
         db.rollback()
+        if assignment is None or assignment.scholar_id != scholar_id:
+            return _render_scholar_detail(request, db, scholar_id, error=str(e))
         return templates.TemplateResponse(
             request,
             "partials/assignment_edit_row.html",
@@ -121,12 +129,20 @@ def update_assignment_route(
     return _render_scholar_detail(request, db, scholar_id, notice="Assignment updated.")
 
 
-@router.delete("/assignments/{assignment_id}", response_class=HTMLResponse)
+@router.delete("/scholars/{scholar_id}/assignments/{assignment_id}", response_class=HTMLResponse)
 def delete_assignment(
-    request: Request, assignment_id: int, scholar_id: int, db: Session = Depends(get_db)
+    request: Request,
+    scholar_id: int,
+    assignment_id: int | None = None,
+    db: Session = Depends(get_db),
 ):
+    if assignment_id is None:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Assignment ID is required."
+        )
+
     try:
-        dept_service.delete_assignment(db, assignment_id)
+        dept_service.delete_assignment(db, scholar_id, assignment_id)
         _log_activity(db, scholar_id, "assignment", "Assignment deleted")
         db.commit()
     except ValueError as e:
@@ -204,9 +220,11 @@ def update_grant_route(
     db: Session = Depends(get_db),
 ):
     grant = grant_service.get_grant(db, grant_id)
+    error_message = None
     try:
         grant_service.update_grant(
             db,
+            scholar_id,
             grant_id,
             program_applied,
             type_of_grant,
@@ -221,20 +239,28 @@ def update_grant_route(
         )
         _log_activity(db, scholar_id, "grant", f"Grant updated: {program_applied}")
         db.commit()
-    except ValueError as e:
+    except ValueError as exc:
         db.rollback()
+        error_message = str(exc)
+    if grant is None or grant.scholar_id != scholar_id:
+        return _render_scholar_detail(request, db, scholar_id, error=error_message)
+    if error_message:
         return templates.TemplateResponse(
             request,
             "partials/grant_edit_row.html",
-            {"grant": grant, "scholar_id": scholar_id, "error": str(e)},
+            {"grant": grant, "scholar_id": scholar_id, "error": error_message},
         )
-    return _render_scholar_detail(request, db, scholar_id, notice="Grant updated.")
+    return templates.TemplateResponse(
+        request,
+        "partials/grant_edit_row.html",
+        {"grant": grant, "scholar_id": scholar_id, "error": None},
+    )
 
 
 @router.delete("/grants/{grant_id}", response_class=HTMLResponse)
 def delete_grant(request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)):
     try:
-        grant_service.delete_grant(db, grant_id)
+        grant_service.delete_grant(db, scholar_id, grant_id)
         _log_activity(db, scholar_id, "grant", "Grant deleted")
         db.commit()
     except ValueError as e:
@@ -293,7 +319,7 @@ def add_grant_review(
 ):
 
     try:
-        grant_service.add_review(db, grant_id, decision, reviewer, comments)
+        grant_service.add_review(db, scholar_id, grant_id, decision, reviewer, comments)
         _log_activity(db, scholar_id, "grant_review", f"Grant review recorded: {decision}")
         db.commit()
     except ValueError as e:
@@ -303,3 +329,4 @@ def add_grant_review(
         db.rollback()
         return _render_scholar_detail(request, db, scholar_id, error="Could not record review.")
     return _render_scholar_detail(request, db, scholar_id, notice="Review recorded.")
+

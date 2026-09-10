@@ -121,6 +121,7 @@ def create_grant(
 
 def update_grant(
     db: Session,
+    scholar_id: int,
     grant_id: int,
     program_applied: str,
     type_of_grant: str | None,
@@ -134,8 +135,8 @@ def update_grant(
     remarks: str | None,
 ) -> Grant:
     grant = db.get(Grant, grant_id)
-    if grant is None:
-        raise ValueError(f"Grant {grant_id} not found.")
+    if grant is None or grant.scholar_id != scholar_id:
+        raise ValueError("Grant not found.")
 
     program_applied = (program_applied or "").strip()
     if not program_applied:
@@ -163,25 +164,23 @@ def update_grant(
     return grant
 
 
-def delete_grant(db: Session, grant_id: int) -> None:
+def delete_grant(db: Session, scholar_id: int, grant_id: int) -> None:
     grant = db.get(Grant, grant_id)
-    if grant is None:
-        raise ValueError(f"Grant {grant_id} not found.")
+    if grant is None or grant.scholar_id != scholar_id:
+        raise ValueError("Grant not found.")
     db.delete(grant)
 
 
 def add_review(
     db: Session,
+    scholar_id: int,
     grant_id: int,
     decision: str,
     reviewer: str | None,
     comments: str | None,
 ) -> GrantReview:
-    """Previously constructed and written to directly from
-    app/routers/records.py, including its own decision/grant-existence
-    validation inline in the route - unlike create_grant/update_grant/
-    delete_grant above, which all validate here. Moved here to match."""
-    if get_grant(db, grant_id) is None:
+    grant = get_grant(db, grant_id)
+    if grant is None or grant.scholar_id != scholar_id:
         raise ValueError("Grant not found.")
     if decision not in VALID_REVIEW_DECISIONS:
         raise ValueError(f"Invalid review decision: {decision}")
