@@ -2616,3 +2616,65 @@ def test_update_grant_rejects_end_year_before_start_year(db_session):
 
     assert grant.start_year == 2024
     assert grant.end_year is None
+
+def test_assignment_create_rejects_malformed_start_date(client):
+    client.post("/scholars", data={"name": "Malformed Date Scholar"})
+
+    response = client.post(
+        "/scholars/1/assignments",
+        data={
+            "department": "CCS",
+            "date_started": "2025-02-30",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Start date must be a valid date (YYYY-MM-DD)." in response.text
+
+    db = TestSession()
+    try:
+        assert db.query(DepartmentAssignment).count() == 0
+    finally:
+        db.close()
+
+
+def test_assignment_update_rejects_malformed_end_date(client):
+    db = TestSession()
+    try:
+        scholar = Scholar(name="Malformed Update Date Scholar")
+        db.add(scholar)
+        db.commit()
+
+        assignment = DepartmentAssignment(
+            scholar_id=scholar.id,
+            department="CCS",
+            date_started=date(2024, 1, 1),
+        )
+        db.add(assignment)
+        db.commit()
+
+        scholar_id = scholar.id
+        assignment_id = assignment.id
+    finally:
+        db.close()
+
+    response = client.post(
+        f"/scholars/{scholar_id}/assignments/{assignment_id}",
+        data={
+            "department": "CCS",
+            "date_started": "2024-01-01",
+            "date_ended": "not-a-date",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "End date must be a valid date (YYYY-MM-DD)." in response.text
+
+    db = TestSession()
+    try:
+        unchanged = db.get(DepartmentAssignment, assignment_id)
+        assert unchanged is not None
+        assert unchanged.date_started == date(2024, 1, 1)
+        assert unchanged.date_ended is None
+    finally:
+        db.close()

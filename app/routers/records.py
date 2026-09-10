@@ -5,6 +5,8 @@ top-level VBA modules 1:1 - the HTTP shape doesn't need to match the
 VBA file layout, only the business-logic layer does.
 """
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -19,13 +21,20 @@ from app.services import grants as grant_service
 from app.services.scholars import ScholarNotFoundError
 from app.utils.dates import parse_date
 
+router = APIRouter()
 
 def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
     db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
 
+def _parse_optional_date(value: str, field_name: str) -> date | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
 
-router = APIRouter()
-
+    parsed = parse_date(normalized)
+    if parsed is None:
+        raise ValueError(f"{field_name} must be a valid date (YYYY-MM-DD).")
+    return parsed
 
 def _render_scholar_detail(
     request: Request,
@@ -63,8 +72,8 @@ def add_assignment(
             department,
             rank,
             tenure,
-            parse_date(date_started),
-            parse_date(date_ended),
+            _parse_optional_date(date_started, "Start date"),
+            _parse_optional_date(date_ended, "End date"),
         )
         _log_activity(db, scholar_id, "assignment", f"Assignment added: {department}")
         db.commit()
@@ -112,8 +121,8 @@ def update_assignment_route(
             department,
             rank,
             tenure,
-            parse_date(date_started),
-            parse_date(date_ended),
+            _parse_optional_date(date_started, "Start date"),
+            _parse_optional_date(date_ended, "End date"),
         )
         _log_activity(db, scholar_id, "assignment", f"Assignment updated: {department}")
         db.commit()
