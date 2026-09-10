@@ -2553,3 +2553,66 @@ def test_update_assignment_rejects_end_before_start(db_session):
 
     assert assignment.date_started == date(2024, 1, 1)
     assert assignment.date_ended is None
+
+def test_create_grant_rejects_end_year_before_start_year(db_session):
+    scholar = Scholar(name="Invalid Grant Range Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="Grant end year cannot be before start year"):
+        grant_service.create_grant(
+            db_session,
+            scholar.id,
+            "Invalid Range Grant",
+            None,
+            None,
+            None,
+            None,
+            2025,
+            2024,
+            None,
+            "Active",
+            None,
+        )
+
+
+def test_update_grant_rejects_end_year_before_start_year(db_session):
+    scholar = Scholar(name="Invalid Updated Grant Range Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    grant = grant_service.create_grant(
+        db_session,
+        scholar.id,
+        "Valid Range Grant",
+        None,
+        None,
+        None,
+        None,
+        2024,
+        None,
+        None,
+        "Active",
+        None,
+    )
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="Grant end year cannot be before start year"):
+        grant_service.update_grant(
+            db_session,
+            scholar.id,
+            grant.id,
+            "Valid Range Grant",
+            None,
+            None,
+            None,
+            None,
+            2025,
+            2024,
+            None,
+            "Active",
+            None,
+        )
+
+    assert grant.start_year == 2024
+    assert grant.end_year is None

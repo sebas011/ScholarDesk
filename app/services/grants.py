@@ -47,6 +47,11 @@ def _validate_field_lengths(
         raise ValueError(f"Extension is too long (max {EXTENSION_MAX_LENGTH} characters).")
 
 
+def _validate_year_range(start_year: int | None, end_year: int | None) -> None:
+    if start_year is not None and end_year is not None and end_year < start_year:
+        raise ValueError("Grant end year cannot be before start year.")
+
+
 def list_for_scholar(db: Session, scholar_id: int) -> list[Grant]:
     return db.query(Grant).filter(Grant.scholar_id == scholar_id).order_by(Grant.id).all()
 
@@ -99,8 +104,9 @@ def create_grant(
     date_ended = (date_ended or "").strip() or None
     extension = (extension or "").strip() or None
     _validate_field_lengths(
-        program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
+    program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
     )
+    _validate_year_range(start_year, end_year)
     grant = Grant(
         scholar_id=scholar_id,
         program_applied=program_applied,
@@ -149,8 +155,9 @@ def update_grant(
     date_ended = (date_ended or "").strip() or None
     extension = (extension or "").strip() or None
     _validate_field_lengths(
-        program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
-    )
+    program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
+)
+    _validate_year_range(start_year, end_year)
     grant.program_applied = program_applied
     grant.type_of_grant = type_of_grant
     grant.delivering_hei = delivering_hei
