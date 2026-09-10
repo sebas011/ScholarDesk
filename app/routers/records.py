@@ -88,6 +88,9 @@ def edit_assignment_form(
     request: Request, scholar_id: int, assignment_id: int, db: Session = Depends(get_db)
 ):
     assignment = dept_service.get_assignment(db, assignment_id)
+    if assignment is None or assignment.scholar_id != scholar_id:
+        return HTMLResponse(status_code=404)
+
     return templates.TemplateResponse(
         request,
         "partials/assignment_edit_row.html",

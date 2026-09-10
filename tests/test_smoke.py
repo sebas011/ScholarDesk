@@ -2904,3 +2904,37 @@ def test_grant_edit_cannot_target_another_scholar(client):
 
     assert response.status_code == 404
     assert "Private Grant" not in response.text
+
+def test_assignment_edit_cannot_target_another_scholar(client):
+    client.post(
+        "/scholars",
+        data={"name": "Assignment Edit Owner", "department": "Owner Only Department"},
+    )
+    client.post(
+        "/scholars",
+        data={"name": "Other Assignment Scholar", "department": "Other Department"},
+    )
+
+    db = TestSession()
+    try:
+        owner = db.query(Scholar).filter_by(name="Assignment Edit Owner").one()
+        other_scholar = (
+            db.query(Scholar).filter_by(name="Other Assignment Scholar").one()
+        )
+        assignment = (
+            db.query(DepartmentAssignment)
+            .filter_by(scholar_id=owner.id)
+            .one()
+        )
+        assignment_id = assignment.id
+        other_scholar_id = other_scholar.id
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/scholars/{other_scholar_id}/assignments/{assignment_id}/edit",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 404
+    assert "Owner Only Department" not in response.text
