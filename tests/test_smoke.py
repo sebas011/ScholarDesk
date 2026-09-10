@@ -274,14 +274,14 @@ def test_assignment_department_too_long_shows_error_not_silently_truncated(clien
 
 def test_update_assignment_with_blank_department_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Update Assignment Scholar", "department": "CCS"})
-    resp = client.post("/assignments/1?scholar_id=1", data={"department": "   "})
+    resp = client.post("/scholars/1/assignments/1", data={"department": "   "})
     assert resp.status_code == 200
     assert "required" in resp.text.lower()
 
 
 def test_delete_nonexistent_assignment_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Delete Assignment Scholar"})
-    resp = client.delete("/assignments/999?scholar_id=1")
+    resp = client.delete("/scholars/1/assignments/999")
     assert resp.status_code == 200
     assert "not found" in resp.text.lower()
 
@@ -1142,7 +1142,7 @@ def test_get_primary_assignment_returns_earliest(db_session):
 
 
 def test_update_assignment_rejects_missing_assignment(db_session):
-    with pytest.raises(ValueError, match="Assignment 999 not found"):
+    with pytest.raises(ValueError, match=r"Assignment not found\."):
         dept_service.update_assignment(
             db_session,
             scholar_id=1,
@@ -1331,7 +1331,7 @@ def test_update_assignment_route_success(client):
     )
 
     response = client.post(
-        "/assignments/1?scholar_id=1",
+        "/scholars/1/assignments/1",
         data={
             "department": "CAS",
             "rank": "Associate Professor",
@@ -1351,7 +1351,7 @@ def test_delete_assignment_route_success(client):
         data={"name": "Delete Assignment Scholar", "department": "CCS"},
     )
 
-    response = client.delete("/assignments/1?scholar_id=1")
+    response = client.delete("/scholars/1/assignments/1")
 
     assert response.status_code == 200
     assert "Assignment deleted." in response.text
@@ -1518,7 +1518,7 @@ def test_edit_assignment_form_returns_edit_partial(client):
         data={"name": "Edit Assignment Form Scholar", "department": "CCS"},
     )
 
-    response = client.get("/assignments/1/edit?scholar_id=1")
+    response = client.get("/scholars/1/assignments/1/edit")
 
     assert response.status_code == 200
     assert "CCS" in response.text
@@ -2866,3 +2866,41 @@ def test_htmx_scholar_create_rejects_malformed_initial_assignment_date(client):
         )
     finally:
         db.close()
+
+def test_grant_edit_cannot_target_another_scholar(client):
+    client.post("/scholars", data={"name": "Grant Edit Owner"})
+    client.post("/scholars", data={"name": "Other Grant Scholar"})
+
+    db = TestSession()
+    try:
+        owner = db.query(Scholar).filter_by(name="Grant Edit Owner").one()
+        other_scholar = db.query(Scholar).filter_by(name="Other Grant Scholar").one()
+        owner_id = owner.id
+        other_scholar_id = other_scholar.id
+
+        grant = grant_service.create_grant(
+            db,
+            owner_id,
+            "Private Grant",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "Active",
+            None,
+        )
+        grant_id = grant.id
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/grants/{grant_id}/edit?scholar_id={other_scholar_id}",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 404
+    assert "Private Grant" not in response.text

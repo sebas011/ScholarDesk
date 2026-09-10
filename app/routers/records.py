@@ -203,7 +203,11 @@ def add_grant(
 def edit_grant_form(
     request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)
 ):
+
     grant = grant_service.get_grant(db, grant_id)
+    if grant is None or grant.scholar_id != scholar_id:
+        return HTMLResponse(status_code=404)
+
     return templates.TemplateResponse(
         request,
         "partials/grant_edit_row.html",
@@ -259,11 +263,7 @@ def update_grant_route(
             "partials/grant_edit_row.html",
             {"grant": grant, "scholar_id": scholar_id, "error": error_message},
         )
-    return templates.TemplateResponse(
-        request,
-        "partials/grant_edit_row.html",
-        {"grant": grant, "scholar_id": scholar_id, "error": None},
-    )
+    return _render_scholar_detail(request, db, scholar_id, notice="Grant updated.")
 
 
 @router.delete("/grants/{grant_id}", response_class=HTMLResponse)
