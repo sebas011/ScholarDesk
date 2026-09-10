@@ -129,7 +129,12 @@ def on_unhandled_exception(request: Request, exc: Exception):
     status_code=503,
     headers={"Retry-After": "1"},
 )
-    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    logger.error(
+    "Unhandled exception on %s %s",
+    request.method,
+    request.url.path,
+    exc_info=(type(exc), exc, exc.__traceback__),
+    )
     return _render_error(
     request,
     "Something went wrong. Please try again.",
