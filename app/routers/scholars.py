@@ -12,7 +12,7 @@ from app.database import get_db
 from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from app.models import DepartmentAssignment, Grant, Scholar, ActivityLog
 from app.core.exceptions import (
     InvalidScholarError,
@@ -23,6 +23,14 @@ from app.utils.dates import parse_date
 
 def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
     db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
+
+
+def _csv_cell(value: object | None) -> str:
+    """Return a CSV-safe text cell for spreadsheet applications."""
+    text = "" if value is None else str(value)
+    if text.lstrip().startswith(("=", "+", "-", "@")):
+        return f"'{text}"
+    return text
 
 
 def _parse_year(year: str | None) -> int | None:
@@ -38,6 +46,13 @@ def _parse_year(year: str | None) -> int | None:
     except ValueError:
         return None
 
+def _parse_optional_age(value: str) -> int | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if not normalized.isdigit():
+        raise ValueError("Age must be a whole number.")
+    return int(normalized)
 
 router = APIRouter()
 
@@ -122,7 +137,7 @@ def dashboard_page(
     q: str | None = None,
     year: str | None = None,
     page: int = 1,
-    per_page: int = 25,
+    per_page: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     from app.services import stats as stats_service
@@ -203,7 +218,7 @@ def scholars_list_partial(
     q: str | None = None,
     year: str | None = None,
     offset: int = 0,
-    limit: int = 100,
+    limit: int = Query(default=50, ge=1, le=100),
     selected_id: int | None = None,
     db: Session = Depends(get_db),
 ):
@@ -278,7 +293,7 @@ def create_scholar_page(
         scholar = scholar_service.create_scholar(
             db,
             name=name,
-            age=int(age) if age.strip().isdigit() else None,
+            age=_parse_optional_age(age),
             previous_degree=previous_degree,
             missing_requirements=missing_requirements,
         )
@@ -360,7 +375,7 @@ def create_scholar(
         scholar = scholar_service.create_scholar(
             db,
             name=name,
-            age=int(age) if age.strip().isdigit() else None,
+            age=_parse_optional_age(age),
             previous_degree=previous_degree,
             missing_requirements=missing_requirements,
         )
@@ -419,7 +434,7 @@ def update_scholar(
             db,
             scholar_id,
             name=name,
-            age=int(age) if age.strip().isdigit() else None,
+            age=_parse_optional_age(age),
             previous_degree=previous_degree,
             missing_requirements=missing_requirements,
         )
@@ -474,28 +489,59 @@ def dashboard_export(
     year: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """Export one row per grant with scholar and primary assignment details.
-    Respects the same search and year filters as the dashboard."""
+    """Export every scholar, with one row per matching grant and blank grant
+columns where no grant exists. Respects dashboard search and year filters."""
 
-    parsed_year: int | None = _parse_year(year)
+    parsed_year = _parse_year(year)
 
-    # Query grants (not scholars) so every grant becomes a CSV row
-    query = db.query(Grant).join(Scholar).order_by(Scholar.name, Grant.id)
-
-    if q:
-        query = query.filter(Scholar.name.ilike(f"%{q}%"))
+    grant_join_conditions = [Grant.scholar_id == Scholar.id]
+    eligible_scholar_filter = None
 
     if parsed_year is not None:
-        query = query.filter(
+        year_start = date(parsed_year, 1, 1)
+        year_end = date(parsed_year, 12, 31)
+
+        dept_scholar_ids = db.query(DepartmentAssignment.scholar_id).filter(
+            DepartmentAssignment.date_started.isnot(None),
+            DepartmentAssignment.date_started <= year_end,
+            or_(
+                DepartmentAssignment.date_ended.is_(None),
+                DepartmentAssignment.date_ended >= year_start,
+            ),
+        )
+        grant_scholar_ids = db.query(Grant.scholar_id).filter(
             Grant.start_year.isnot(None),
             Grant.start_year <= parsed_year,
             or_(Grant.end_year.is_(None), Grant.end_year >= parsed_year),
         )
+        eligible_scholar_filter = or_(
+            Scholar.id.in_(dept_scholar_ids),
+            Scholar.id.in_(grant_scholar_ids),
+        )
+        grant_join_conditions.extend(
+            (
+                Grant.start_year.isnot(None),
+                Grant.start_year <= parsed_year,
+                or_(Grant.end_year.is_(None), Grant.end_year >= parsed_year),
+            )
+        )
 
-    grants = query.all()
+    query = (
+        db.query(Scholar, Grant)
+        .outerjoin(Grant, and_(*grant_join_conditions))
+        .order_by(Scholar.name, Scholar.id, Grant.id)
+    )
 
-    # Batch-load primary assignments
-    scholar_ids = list({g.scholar_id for g in grants})
+    if q:
+        query = query.filter(Scholar.name.ilike(f"%{q}%"))
+
+    if eligible_scholar_filter is not None:
+        query = query.filter(eligible_scholar_filter)
+
+    export_rows = query.all()
+
+    # Batch-load each exported scholar's primary assignment.
+    scholar_ids = list({scholar.id for scholar, _ in export_rows})
     assignments_by_scholar: dict[int, DepartmentAssignment] = {}
     if scholar_ids:
         assignments = (
@@ -504,9 +550,9 @@ def dashboard_export(
             .order_by(DepartmentAssignment.id)
             .all()
         )
-        for a in assignments:
-            if a.scholar_id not in assignments_by_scholar:
-                assignments_by_scholar[a.scholar_id] = a
+        for assignment in assignments:
+            if assignment.scholar_id not in assignments_by_scholar:
+                assignments_by_scholar[assignment.scholar_id] = assignment
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -529,25 +575,27 @@ def dashboard_export(
         ]
     )
 
-    for g in grants:
-        s = g.scholar
-        a = assignments_by_scholar.get(s.id)
+    for scholar, grant in export_rows:
+        assignment = assignments_by_scholar.get(scholar.id)
         writer.writerow(
             [
-                s.name,
-                a.rank if a else "",
-                a.department if a else "",
-                s.age or "",
-                a.tenure if a else "",
-                s.previous_degree or "",
-                g.program_applied,
-                g.delivering_hei or "",
-                g.type_of_grant or "",
-                g.date_started or "",
-                g.date_ended or "",
-                g.extension or "",
-                g.status,
-                g.remarks or "",
+                _csv_cell(value)
+                for value in (
+                    scholar.name,
+                    assignment.rank if assignment else "",
+                    assignment.department if assignment else "",
+                    scholar.age,
+                    assignment.tenure if assignment else "",
+                    scholar.previous_degree,
+                    grant.program_applied if grant else "",
+                    grant.delivering_hei if grant else "",
+                    grant.type_of_grant if grant else "",
+                    grant.date_started if grant else "",
+                    grant.date_ended if grant else "",
+                    grant.extension if grant else "",
+                    grant.status if grant else "",
+                    grant.remarks if grant else "",
+                )
             ]
         )
 
@@ -556,7 +604,7 @@ def dashboard_export(
     filename = f"scholars_export_{date_str}.csv"
 
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    iter([output.getvalue()]),
+    media_type="text/csv",
+    headers={"Content-Disposition": f"attachment; filename={filename}"},
+)

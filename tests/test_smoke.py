@@ -2705,3 +2705,53 @@ def test_assignment_edit_row_renders_registered_save_url(client):
 
     assert response.status_code == 200
     assert 'hx-post="/scholars/1/assignments/1"' in response.text
+
+def test_new_scholar_page_rejects_nonnumeric_age(client):
+    response = client.post(
+        "/scholars/new",
+        data={
+            "name": "Invalid Age Scholar",
+            "age": "twenty-five",
+            "previous_degree": "BS Computer Science",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Age must be a whole number." in response.text
+    assert 'value="twenty-five"' in response.text
+
+
+def test_htmx_scholar_create_rejects_nonnumeric_age(client):
+    response = client.post(
+        "/scholars",
+        data={"name": "Invalid HTMX Age Scholar", "age": "twenty-five"},
+    )
+
+    assert response.status_code == 200
+    assert "Age must be a whole number." in response.text
+
+    db = TestSession()
+    try:
+        assert db.query(Scholar).count() == 0
+    finally:
+        db.close()
+
+
+def test_scholar_update_rejects_nonnumeric_age(client):
+    client.post("/scholars", data={"name": "Existing Scholar", "age": "25"})
+
+    response = client.put(
+        "/scholars/1",
+        data={"name": "Existing Scholar", "age": "not-a-number"},
+    )
+
+    assert response.status_code == 200
+    assert "Age must be a whole number." in response.text
+
+    db = TestSession()
+    try:
+        scholar = db.get(Scholar, 1)
+        assert scholar is not None
+        assert scholar.age == 25
+    finally:
+        db.close()
