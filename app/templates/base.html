@@ -134,6 +134,14 @@
     </main>
 
     <script>
+        // HTMX normally refuses to swap non-2xx responses. Error partials are
+    // intentionally safe to render in the initiating request's target.
+    document.body.addEventListener("htmx:beforeSwap", function(event) {
+        if ([422, 500, 503].includes(event.detail.xhr.status)) {
+            event.detail.shouldSwap = true;
+            event.detail.isError = false;
+        }
+    });
         // Global HTMX progress bar
         document.body.addEventListener('htmx:beforeRequest', function() {
             document.getElementById('htmx-progress').classList.add('htmx-request');

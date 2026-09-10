@@ -2457,3 +2457,22 @@ def test_grant_review_cannot_target_another_scholar(client):
         assert db.query(GrantReview).count() == 0
     finally:
         db.close()
+
+def test_validation_error_returns_full_error_page_for_normal_request(client):
+    response = client.get("/dashboard?per_page=101")
+
+    assert response.status_code == 422
+    assert "<html" in response.text
+    assert "Please fill in: query.per_page" in response.text
+
+
+def test_validation_error_returns_error_partial_for_htmx_request(client):
+    response = client.get(
+        "/dashboard?per_page=101",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 422
+    assert 'class="alert alert-error"' in response.text
+    assert "<html" not in response.text
+    assert "Please fill in: query.per_page" in response.text

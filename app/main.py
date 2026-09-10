@@ -43,6 +43,25 @@ app.include_router(scholars.router)
 app.include_router(records.router)
 
 
+def _render_error(
+    request: Request,
+    message: str,
+    status_code: int,
+    headers: dict[str, str] | None = None,
+):
+    template_name = (
+        "partials/generic_error.html"
+        if request.headers.get("HX-Request") == "true"
+        else "error.html"
+    )
+    return templates.TemplateResponse(
+        request,
+        template_name,
+        {"error": message},
+        status_code=status_code,
+        headers=headers,
+    )
+
 @app.exception_handler(RequestValidationError)
 async def on_validation_error(request: Request, exc: RequestValidationError):
     """A blank/malformed required field (e.g. Name left empty) would
@@ -70,12 +89,7 @@ async def on_validation_error(request: Request, exc: RequestValidationError):
             status_code=422,
         )
 
-    return templates.TemplateResponse(
-        request,
-        "partials/scholar_detail.html",
-        {"scholar": None, "error": message},
-        status_code=422,
-    )
+    return _render_error(request, message, status_code=422)
 
 
 def _is_sqlite_lock_error(exc: Exception) -> bool:
@@ -109,20 +123,15 @@ def on_unhandled_exception(request: Request, exc: Exception):
             request.url.path,
             exc_info=(type(exc), exc, exc.__traceback__),
         )
-        return templates.TemplateResponse(
-            request,
-            "partials/scholar_detail.html",
-            {
-                "scholar": None,
-                "error": "Database is busy. Please try again shortly.",
-            },
-            status_code=503,
-            headers={"Retry-After": "1"},
-        )
+        return _render_error(
+    request,
+    "Database is busy. Please try again shortly.",
+    status_code=503,
+    headers={"Retry-After": "1"},
+)
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
-    return templates.TemplateResponse(
-        request,
-        "partials/scholar_detail.html",
-        {"scholar": None, "error": "Something went wrong. Please try again."},
-        status_code=500,
-    )
+    return _render_error(
+    request,
+    "Something went wrong. Please try again.",
+    status_code=500,
+)
