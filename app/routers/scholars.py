@@ -13,7 +13,7 @@ from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
 from app.services import grants as grant_service
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from app.models import DepartmentAssignment, Grant, Scholar, ActivityLog
 from app.core.exceptions import (
     InvalidScholarError,
@@ -112,32 +112,49 @@ def _enrich_scholars(db: Session, scholars: list):
     enriched = {s.id: {"dept": "—", "rank": "—", "status": "—"} for s in scholars}
 
     if scholar_ids:
-        # Primary assignment = earliest id per scholar
+        # Primary assignment = lowest assignment ID per scholar.
+        primary_assignments = (
+            db.query(
+                DepartmentAssignment.scholar_id,
+                func.min(DepartmentAssignment.id).label("assignment_id"),
+            )
+            .filter(DepartmentAssignment.scholar_id.in_(scholar_ids))
+            .group_by(DepartmentAssignment.scholar_id)
+            .subquery()
+        )
         assignments = (
             db.query(DepartmentAssignment)
-            .filter(DepartmentAssignment.scholar_id.in_(scholar_ids))
-            .order_by(DepartmentAssignment.id)
+            .join(
+                primary_assignments,
+                DepartmentAssignment.id == primary_assignments.c.assignment_id,
+            )
             .all()
         )
-        seen = set()
-        for a in assignments:
-            if a.scholar_id not in seen:
-                enriched[a.scholar_id]["dept"] = a.department
-                enriched[a.scholar_id]["rank"] = a.rank or "—"
-                seen.add(a.scholar_id)
-
-        # Latest grant status = most recent start_year, then highest id
+        for assignment in assignments:
+            enriched[assignment.scholar_id]["dept"] = assignment.department
+            enriched[assignment.scholar_id]["rank"] = assignment.rank or "—"
+        # Latest grant status = greatest start_year, then greatest ID.
+        ranked_grants = (
+            db.query(
+                Grant.id.label("grant_id"),
+                func.row_number()
+                .over(
+                    partition_by=Grant.scholar_id,
+                    order_by=(Grant.start_year.desc(), Grant.id.desc()),
+                )
+                .label("position"),
+            )
+            .filter(Grant.scholar_id.in_(scholar_ids))
+            .subquery()
+        )
         grants = (
             db.query(Grant)
-            .filter(Grant.scholar_id.in_(scholar_ids))
-            .order_by(Grant.start_year.desc(), Grant.id.desc())
+            .join(ranked_grants, Grant.id == ranked_grants.c.grant_id)
+            .filter(ranked_grants.c.position == 1)
             .all()
         )
-        seen = set()
-        for g in grants:
-            if g.scholar_id not in seen:
-                enriched[g.scholar_id]["status"] = g.status
-                seen.add(g.scholar_id)
+        for grant in grants:
+            enriched[grant.scholar_id]["status"] = grant.status
 
     return enriched
 

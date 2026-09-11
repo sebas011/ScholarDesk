@@ -52,6 +52,7 @@ from app.services.payroll_import_service import import_payroll_workbooks
 from app.payroll_database import initialize_payroll_database
 from app.payroll_models import FacultyProfile
 from sqlalchemy.orm import Query
+from app.routers.scholars import _enrich_scholars
 
 from app.payroll_database import (
     PayrollBase,
@@ -2974,3 +2975,44 @@ def test_dashboard_export_streams_rows_without_query_all(client, monkeypatch):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     assert "Name,Rank,Department" in response.text
+
+def test_dashboard_enrichment_uses_primary_assignment_and_latest_grant(db_session):
+    scholar = Scholar(name="Dashboard Enrichment Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    db_session.add_all(
+        [
+            DepartmentAssignment(
+                scholar_id=scholar.id,
+                department="Primary Department",
+                rank="Lecturer",
+            ),
+            DepartmentAssignment(
+                scholar_id=scholar.id,
+                department="Later Department",
+                rank="Professor",
+            ),
+            Grant(
+                scholar_id=scholar.id,
+                program_applied="Older Grant",
+                start_year=2024,
+                status="Completed",
+            ),
+            Grant(
+                scholar_id=scholar.id,
+                program_applied="Latest Grant",
+                start_year=2025,
+                status="Active",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    enriched = _enrich_scholars(db_session, [scholar])
+
+    assert enriched[scholar.id] == {
+        "dept": "Primary Department",
+        "rank": "Lecturer",
+        "status": "Active",
+    }
