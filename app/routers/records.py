@@ -324,16 +324,12 @@ def add_grant_review(
     comments: str = Form(""),
     db: Session = Depends(get_db),
 ):
-
     try:
         grant_service.add_review(db, scholar_id, grant_id, decision, reviewer, comments)
         _log_activity(db, scholar_id, "grant_review", f"Grant review recorded: {decision}")
         db.commit()
-    except ValueError as e:
+    except ValueError as exc:
         db.rollback()
-        return _render_scholar_detail(request, db, scholar_id, error=str(e))
-    except Exception:
-        db.rollback()
-        return _render_scholar_detail(request, db, scholar_id, error="Could not record review.")
-    return _render_scholar_detail(request, db, scholar_id, notice="Review recorded.")
+        return _render_scholar_detail(request, db, scholar_id, error=str(exc))
 
+    return _render_scholar_detail(request, db, scholar_id, notice="Review recorded.")

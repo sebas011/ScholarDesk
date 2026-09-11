@@ -1479,17 +1479,22 @@ def test_add_grant_review_unexpected_error_shows_generic_error(client, monkeypat
 
     monkeypatch.setattr(grant_service, "add_review", fail_add_review)
 
-    response = client.post(
-        "/grants/1/reviews?scholar_id=1",
+    non_raising_client = TestClient(app, raise_server_exceptions=False)
+    try:
+        response = non_raising_client.post(
+            "/grants/1/reviews?scholar_id=1",
         data={
             "decision": "approved",
             "reviewer": "Reviewer One",
             "comments": "Test failure path.",
         },
     )
+    finally:
+        non_raising_client.close()
 
-    assert response.status_code == 200
-    assert "Could not record review." in response.text
+    assert response.status_code == 500
+    assert "Something went wrong. Please try again." in response.text
+    assert "unexpected review failure" not in response.text
 
 
 def test_add_grant_review_invalid_decision_shows_error(client):
@@ -2953,3 +2958,28 @@ def test_blank_note_shows_validation_error(client):
 
     assert response.status_code == 200
     assert "Note cannot be empty." in response.text
+
+def test_add_grant_review_unexpected_error_uses_generic_500(client, monkeypatch):
+    client.post("/scholars", data={"name": "Review Error Scholar"})
+    client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "Review Error Grant"},
+    )
+
+    def fail_add_review(*args, **kwargs):
+        raise RuntimeError("unexpected review failure")
+
+    monkeypatch.setattr(grant_service, "add_review", fail_add_review)
+
+    non_raising_client = TestClient(app, raise_server_exceptions=False)
+    try:
+        response = non_raising_client.post(
+            "/grants/1/reviews?scholar_id=1",
+            data={"decision": "approved"},
+        )
+    finally:
+        non_raising_client.close()
+
+    assert response.status_code == 500
+    assert "Something went wrong. Please try again." in response.text
+    assert "unexpected review failure" not in response.text
