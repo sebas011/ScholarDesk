@@ -1,0 +1,12 @@
+# Caddy runs on the same Windows machine as ScholarDesk.
+# It is the only process that should listen on the LAN.
+cathedra.vpaa {
+    tls internal
+
+    reverse_proxy 127.0.0.1:8000
+
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000"
+    }
+}

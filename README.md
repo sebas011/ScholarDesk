@@ -12,6 +12,24 @@ To serve other computers, run a TLS-terminating reverse proxy on the same Window
 
 Keep port 8000 blocked from the LAN. ScholarDesk deliberately ignores `network.txt`; it must remain loopback-only so HTTP Basic credentials and scholar data cannot be sent across the network without TLS.
 
+### Cathedra Caddy deployment
+
+The included [Caddy configuration](deployment/Caddyfile.cathedra.vpaa) serves
+`https://cathedra.vpaa` with Caddy's internal certificate authority and proxies
+only to ScholarDesk on `127.0.0.1:8000`.
+
+Before enabling it:
+
+1. Create an internal DNS record for `cathedra.vpaa` pointing to the Windows
+   host running ScholarDesk and Caddy.
+2. Install Caddy on that host and start it with the included configuration.
+3. Trust Caddy's internal root certificate on every authorized client device.
+4. Allow inbound TCP port 443 to Caddy; do not allow inbound TCP port 8000.
+5. Verify `https://cathedra.vpaa` shows a valid trusted certificate, then test
+   ScholarDesk login, create, edit, export, and logout flows through that URL.
+
+Do not expose ScholarDesk directly with `http://cathedra.vpaa:8000`.
+
 ---
 
 ## Features

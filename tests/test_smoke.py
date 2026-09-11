@@ -7,6 +7,7 @@ Run with: pytest
 """
 import csv
 import io
+from pathlib import Path
 import run as application_runner
 from app.routers.scholars import _csv_cell
 import pytest
@@ -669,6 +670,16 @@ def test_allow_lan_rejects_non_true_values(tmp_path, monkeypatch, value):
 
 def test_runner_binds_only_to_loopback_for_tls_proxy_deployment():
     assert application_runner._resolve_host() == "127.0.0.1"
+
+
+def test_cathedra_caddyfile_uses_tls_and_loopback_upstream():
+    caddyfile = (
+        Path(__file__).resolve().parent.parent / "deployment" / "Caddyfile.cathedra.vpaa"
+    ).read_text(encoding="utf-8")
+
+    assert "cathedra.vpaa {" in caddyfile
+    assert "tls internal" in caddyfile
+    assert "reverse_proxy 127.0.0.1:8000" in caddyfile
 
 
 def test_sqlite_pragma_hook_enables_foreign_keys():
