@@ -54,7 +54,7 @@ from app.payroll_models import FacultyProfile
 from sqlalchemy.orm import Query
 from app.routers.scholars import _enrich_scholars
 from app.core import auth as auth_service
-
+from app.main import MAX_REQUEST_BODY_BYTES
 from app.payroll_database import (
     PayrollBase,
     get_payroll_db,
@@ -68,7 +68,6 @@ from app.services.payroll_store import (
 )
 
 STANDARD_WEEKLY_HOURS = 40
-
 
 # StaticPool keeps a single connection alive for the whole test run -
 
@@ -3190,3 +3189,28 @@ def test_same_origin_mutation_is_allowed(client):
 
     assert response.status_code == 200
     assert "Same Origin Allowed Scholar" in response.text
+
+def test_oversized_write_request_is_rejected(client):
+    response = client.post(
+        "/scholars",
+        content=b"x" * (MAX_REQUEST_BODY_BYTES + 1),
+        headers={"Content-Length": str(MAX_REQUEST_BODY_BYTES + 1)},
+    )
+
+    assert response.status_code == 413
+    assert "Request is too large. Please reduce it and try again." in response.text
+
+
+def test_oversized_htmx_write_returns_error_partial(client):
+    response = client.post(
+        "/scholars",
+        content=b"x" * (MAX_REQUEST_BODY_BYTES + 1),
+        headers={
+            "Content-Length": str(MAX_REQUEST_BODY_BYTES + 1),
+            "HX-Request": "true",
+        },
+    )
+
+    assert response.status_code == 413
+    assert 'class="alert alert-error"' in response.text
+    assert "<html" not in response.text

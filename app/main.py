@@ -47,6 +47,7 @@ UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 CSRF_COOKIE_NAME = "scholardesk_csrf"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_HEADER_NAME = "x-csrf-token"
+MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
 
 @app.middleware("http")
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
@@ -57,8 +58,20 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
         csrf_token = secrets.token_urlsafe(32)
 
     request.state.csrf_token = csrf_token
+    content_length = request.headers.get("content-length")
 
-    if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
+    try:
+        request_body_bytes = int(content_length) if content_length is not None else 0
+    except ValueError:
+        request_body_bytes = MAX_REQUEST_BODY_BYTES + 1
+
+    if request_body_bytes > MAX_REQUEST_BODY_BYTES:
+        response = _render_error(
+            request,
+            "Request is too large. Please reduce it and try again.",
+            status_code=413,
+        )
+    elif request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
         f"{PAYROLL_PATH_PREFIX}/"
     ):
         response = HTMLResponse(status_code=404)
@@ -104,9 +117,14 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
 def _render_error(request: Request, message: str, status_code: int, headers: dict | None = None):
     """Render a generic HTML error message for both standard and htmx requests."""
     try:
+        template_name = (
+            "partials/generic_error.html"
+        if request.headers.get("HX-Request") == "true"
+        else "error.html"
+)
         return templates.TemplateResponse(
-            request,
-            "error.html",
+    request,
+    template_name,
             {"error": message},
             status_code=status_code,
             headers=headers or {},

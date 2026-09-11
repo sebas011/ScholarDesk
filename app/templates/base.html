@@ -145,7 +145,7 @@
     }
     });
     document.body.addEventListener("htmx:beforeSwap", function(event) {
-        if ([422, 500, 503].includes(event.detail.xhr.status)) {
+        if ([413, 422, 500, 503].includes(event.detail.xhr.status)) {
             event.detail.shouldSwap = true;
             event.detail.isError = false;
         }
