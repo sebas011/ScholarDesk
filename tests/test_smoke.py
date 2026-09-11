@@ -2983,3 +2983,24 @@ def test_add_grant_review_unexpected_error_uses_generic_500(client, monkeypatch)
     assert response.status_code == 500
     assert "Something went wrong. Please try again." in response.text
     assert "unexpected review failure" not in response.text
+
+def test_add_grant_rejects_malformed_year(client):
+    client.post("/scholars", data={"name": "Malformed Grant Year Scholar"})
+
+    response = client.post(
+        "/scholars/1/grants",
+        data={
+            "program_applied": "Invalid Year Grant",
+            "start_year": "20X6",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert "Start year must be a four-digit year between 1900 and 9999." in response.text
+
+    db = TestSession()
+    try:
+        assert db.query(Grant).filter_by(scholar_id=1).count() == 0
+    finally:
+        db.close()

@@ -36,6 +36,14 @@ def _parse_optional_date(value: str, field_name: str) -> date | None:
         raise ValueError(f"{field_name} must be a valid date (YYYY-MM-DD).")
     return parsed
 
+def _parse_optional_year(value: str, field_name: str) -> int | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if not (normalized.isdigit() and 1900 <= int(normalized) <= 9999):
+        raise ValueError(f"{field_name} must be a four-digit year between 1900 and 9999.")
+    return int(normalized)
+
 def _render_scholar_detail(
     request: Request,
     db: Session,
@@ -180,6 +188,8 @@ def add_grant(
     db: Session = Depends(get_db),
 ):
     try:
+        parsed_start_year = _parse_optional_year(start_year, "Start year")
+        parsed_end_year = _parse_optional_year(end_year, "End year")
         grant_service.create_grant(
             db,
             scholar_id,
@@ -188,8 +198,8 @@ def add_grant(
             delivering_hei,
             date_started,
             date_ended,
-            int(start_year) if start_year.strip().isdigit() else None,
-            int(end_year) if end_year.strip().isdigit() else None,
+            parsed_start_year,
+            parsed_end_year,
             extension,
             status,
             remarks,
