@@ -145,7 +145,7 @@ def _enrich_scholars(db: Session, scholars: list):
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard_page(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=200),
     year: str | None = None,
     page: int = Query(default=1, ge=1, le=10_000),
     per_page: int = Query(default=50, ge=1, le=100),
@@ -181,7 +181,7 @@ def dashboard_page(
 @router.get("/scholars", response_class=HTMLResponse)
 def scholars_page(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=200),
     year: str | None = None,
     scholar_id: int | None = None,
     db: Session = Depends(get_db),
@@ -226,7 +226,7 @@ def scholars_page(
 @router.get("/scholars/list", response_class=HTMLResponse)
 def scholars_list_partial(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=200),
     year: str | None = None,
     offset: int = Query(default=0, ge=0, le=1_000_000),
     limit: int = Query(default=50, ge=1, le=100),
@@ -561,7 +561,7 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
 @router.get("/dashboard/export")
 def dashboard_export(
     request: Request,
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=200),
     year: str | None = None,
     db: Session = Depends(get_db),
 ):

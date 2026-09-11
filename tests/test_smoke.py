@@ -3012,3 +3012,8 @@ def test_dashboard_rejects_invalid_page_bounds(client):
 def test_scholar_list_rejects_invalid_offset_bounds(client):
     assert client.get("/scholars/list?offset=-1").status_code == 422
     assert client.get("/scholars/list?offset=1000001").status_code == 422
+
+def test_dashboard_rejects_oversized_search_query(client):
+    response = client.get("/dashboard", params={"q": "x" * 201})
+
+    assert response.status_code == 422
