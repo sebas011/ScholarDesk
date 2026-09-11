@@ -19,7 +19,7 @@ pyinstaller ScholarDesk.spec --clean --noconfirm || goto :error
 
 echo.
 echo === BUILD SUCCESS ===
-echo Output: dist\ScholarDesk.exe
+echo Output: dist\ScholarDesk.exe and dist\ScholarDeskAdmin.exe
 goto :eof
 
 :error

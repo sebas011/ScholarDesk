@@ -3184,6 +3184,15 @@ def test_auth_incomplete_credentials_file_fails_closed(tmp_path, monkeypatch):
     assert auth.load_credentials() == ("admin", "")
     assert auth.using_default_password() is True
 
+
+def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
+    spec_file = Path("ScholarDesk.spec")
+    contents = spec_file.read_text(encoding="utf-8")
+
+    assert 'str(root / "app" / "admin.py")' in contents
+    assert 'name="ScholarDeskAdmin"' in contents
+    assert "console=True" in contents
+
 def test_security_headers_protect_html_and_csv_responses(client):
     for response in (
         client.get("/dashboard"),

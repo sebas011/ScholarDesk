@@ -74,3 +74,44 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# The admin utility must retain a console so getpass can safely prompt for a
+# password. It intentionally has no templates or database payload.
+admin_a = Analysis(
+    [str(root / "app" / "admin.py")],
+    pathex=[str(root)],
+    binaries=[],
+    datas=[],
+    hiddenimports=["app.core.auth", "app.database"],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+admin_pyz = PYZ(admin_a.pure, admin_a.zipped_data, cipher=block_cipher)
+
+admin_exe = EXE(
+    admin_pyz,
+    admin_a.scripts,
+    admin_a.binaries,
+    admin_a.zipfiles,
+    admin_a.datas,
+    [],
+    name="ScholarDeskAdmin",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
