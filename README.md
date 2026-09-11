@@ -4,11 +4,13 @@ Local desktop app for tracking **scholars**, **department assignments**, and **g
 
 ScholarDesk is a single-user FastAPI + SQLite web app, packaged as a Windows executable (`ScholarDesk.exe`). It is a relational rewrite of a VBA/Excel grant tracker: real foreign keys instead of a shared `EmployeeID` string, date ranges on assignments, and year-based filtering that actually answers "who was active in this year?"
 
-The server binds to `127.0.0.1` by default and requires HTTP Basic Auth. LAN access is opt-in through `network.txt` after changing the default password.
+The server always binds to `127.0.0.1` and requires HTTP Basic Auth. It is not a LAN-facing web server.
 
-## Optional LAN access
+## LAN access through a TLS proxy
 
-The app listens on `127.0.0.1` by default. To allow access from other computers on the same LAN, set `allow_lan=true` in the generated `network.txt` after changing the default password in `auth.txt`. Restart the app after changing `network.txt`.
+To serve other computers, run a TLS-terminating reverse proxy on the same Windows machine. Configure the proxy to listen on the LAN over HTTPS and forward only to `http://127.0.0.1:8000`.
+
+Keep port 8000 blocked from the LAN. ScholarDesk deliberately ignores `network.txt`; it must remain loopback-only so HTTP Basic credentials and scholar data cannot be sent across the network without TLS.
 
 ---
 
@@ -97,8 +99,7 @@ tests/
 ## Database, Backups, and Migrations
 
 ScholarDesk stores its SQLite database in `grants.db`, next to the executable. The
-local configuration files `auth.txt` and `network.txt` are stored in the same
-directory.
+local credential file `auth.txt` is stored in the same directory.
 
 Stop ScholarDesk before copying or restoring the database.
 
@@ -138,12 +139,11 @@ The release folder contains runtime state beside the executable:
 - `ScholarDesk.exe` — packaged application
 - `grants.db` — live SQLite data
 - `auth.txt` — local Basic Auth credentials
-- `network.txt` — network binding configuration
 - `logs\` — runtime logs
 - `SHA256SUMS.txt` — executable integrity record
 
-The release folder and its database and credentials must remain private. The
-default configuration is localhost-only (`allow_lan=false`).
+The release folder and its database and credentials must remain private.
+ScholarDesk always remains localhost-only; a TLS proxy is required for LAN use.
 
 ## Audit and production-hardening summary
 
@@ -179,7 +179,7 @@ Before distributing a new Windows release:
 
 1. Run the tests and build from the main checkout with `build.bat`.
 2. Stop any running packaged application before copying database files.
-3. Keep `auth.txt`, `network.txt`, and `grants.db` private.
+3. Keep `auth.txt` and `grants.db` private.
 4. Verify the executable hash with `Get-FileHash`.
 5. Start the copied release and test login and data persistence.
 6. Stop the app and remove transient `grants.db-shm`, `grants.db-wal`, and

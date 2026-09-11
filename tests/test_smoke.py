@@ -7,6 +7,7 @@ Run with: pytest
 """
 import csv
 import io
+import run as application_runner
 from app.routers.scholars import _csv_cell
 import pytest
 from fastapi import HTTPException
@@ -664,6 +665,10 @@ def test_allow_lan_rejects_non_true_values(tmp_path, monkeypatch, value):
     monkeypatch.setattr(network, "NETWORK_CONFIG_FILE", config_file)
 
     assert network.allow_lan() is False
+
+
+def test_runner_binds_only_to_loopback_for_tls_proxy_deployment():
+    assert application_runner._resolve_host() == "127.0.0.1"
 
 
 def test_sqlite_pragma_hook_enables_foreign_keys():
