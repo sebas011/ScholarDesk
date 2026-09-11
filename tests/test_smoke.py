@@ -1531,20 +1531,11 @@ def test_edit_assignment_form_returns_edit_partial(client):
     assert response.status_code == 200
     assert "CCS" in response.text
 
-
-def test_dashboard_invalid_year_falls_back_to_all_time(client):
-    response = client.get("/dashboard?year=not-a-year")
-
-    assert response.status_code == 200
-    assert "Invalid year" not in response.text
-
-
 def test_home_with_valid_year_uses_year_filtered_stats(client):
     response = client.get("/home?year=2024")
 
     assert response.status_code == 200
     assert "Active in 2024" in response.text
-
 
 def test_dashboard_enriches_scholar_with_latest_grant_status(client):
     client.post(
@@ -1564,7 +1555,6 @@ def test_dashboard_enriches_scholar_with_latest_grant_status(client):
     assert response.status_code == 200
     assert "Active" in response.text
 
-
 def test_new_scholar_form_htmx_returns_partial(client):
     response = client.get(
         "/scholars/new",
@@ -1574,14 +1564,12 @@ def test_new_scholar_form_htmx_returns_partial(client):
     assert response.status_code == 200
     assert "Add Scholar" in response.text
 
-
 def test_new_scholar_form_normal_request_returns_full_page(client):
     response = client.get("/scholars/new")
 
     assert response.status_code == 200
     assert "<html" in response.text
     assert "Add Scholar" in response.text
-
 
 def test_create_scholar_page_success_redirects_to_dashboard(client):
     response = client.post(
@@ -1602,7 +1590,6 @@ def test_create_scholar_page_success_redirects_to_dashboard(client):
     assert response.status_code == 303
     assert response.headers["location"] == "/dashboard"
 
-
 def test_create_scholar_page_validation_error_rerenders_form(client):
     response = client.post(
         "/scholars/new",
@@ -1621,7 +1608,6 @@ def test_create_scholar_page_validation_error_rerenders_form(client):
     assert response.status_code == 400
     assert "Scholar name is required." in response.text
 
-
 def test_scholar_detail_normal_request_returns_profile(client):
     client.post(
         "/scholars",
@@ -1634,7 +1620,6 @@ def test_scholar_detail_normal_request_returns_profile(client):
     assert "<html" in response.text
     assert "Profile Scholar" in response.text
 
-
 def test_scholar_detail_htmx_missing_scholar_returns_partial(client):
     response = client.get(
         "/scholars/999",
@@ -1643,7 +1628,6 @@ def test_scholar_detail_htmx_missing_scholar_returns_partial(client):
 
     assert response.status_code == 200
     assert "Scholar not found." in response.text
-
 
 def test_update_scholar_route_success(client):
     client.post(
@@ -1664,7 +1648,6 @@ def test_update_scholar_route_success(client):
     assert "Scholar updated." in response.text
     assert "Updated Scholar" in response.text
     assert response.headers["HX-Trigger"] == "scholar-changed"
-
 
 def test_dashboard_export_returns_csv_for_matching_grant(client):
     client.post(
@@ -1689,7 +1672,6 @@ def test_dashboard_export_returns_csv_for_matching_grant(client):
     assert "Export Scholar" in response.text
     assert "Export Grant" in response.text
 
-
 def test_dashboard_export_includes_scholar_without_grant(client):
     client.post(
         "/scholars",
@@ -1705,7 +1687,6 @@ def test_dashboard_export_includes_scholar_without_grant(client):
     assert rows[1][0] == "No Grant Scholar"
     assert rows[1][6:] == [""] * 8
 
-
 @pytest.mark.parametrize(
     "value",
     [
@@ -1718,7 +1699,6 @@ def test_dashboard_export_includes_scholar_without_grant(client):
 )
 def test_csv_cell_neutralizes_spreadsheet_formulas(value):
     assert _csv_cell(value) == f"'{value}"
-
 
 def test_using_default_password_reflects_auth_file(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
@@ -1736,7 +1716,6 @@ def test_using_default_password_reflects_auth_file(tmp_path, monkeypatch):
     )
     assert auth.using_default_password() is False
 
-
 def test_logging_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
     import importlib
     import sys
@@ -1753,7 +1732,6 @@ def test_logging_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     importlib.reload(app_logging)
 
-
 def test_allow_lan_uses_default_when_setting_is_missing(tmp_path, monkeypatch):
     from app.core import network
 
@@ -1762,7 +1740,6 @@ def test_allow_lan_uses_default_when_setting_is_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(network, "NETWORK_CONFIG_FILE", config_file)
 
     assert network.allow_lan() is network.DEFAULT_ALLOW_LAN
-
 
 def test_database_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
     import runpy
@@ -1779,13 +1756,11 @@ def test_database_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
 
     assert namespace["app_dir"] == tmp_path
 
-
 def test_payroll_placeholder_route_returns_page(client):
     response = client.get("/payroll")
 
     assert response.status_code == 200
     assert "Payroll" in response.text
-
 
 @pytest.mark.anyio
 async def test_lifespan_initializes_and_disposes_database(monkeypatch):
@@ -1806,12 +1781,10 @@ async def test_lifespan_initializes_and_disposes_database(monkeypatch):
     dispose.assert_called_once_with()
     info.assert_any_call("Grant Tracker stopped.")
 
-
 def test_is_sqlite_lock_error_rejects_non_operational_error():
     from app import main
 
     assert main._is_sqlite_lock_error(RuntimeError("database is locked")) is False
-
 
 def test_unhandled_exception_returns_generic_500_response():
     from app import main
@@ -1840,17 +1813,14 @@ def test_unhandled_exception_returns_generic_500_response():
     assert b"Something went wrong. Please try again." in response.body
     assert b"internal implementation detail" not in response.body
 
-
 def test_parse_lab_units_handles_weighted_values():
     assert parse_lab_units("5 (4.25)") == Decimal("4.25")
     assert parse_lab_units("4") == Decimal("3.00")
     assert parse_lab_units("4.25") == Decimal("4.25")
 
-
 def derive_hourly_rate(monthly_salary, standard_weekly_hours=STANDARD_WEEKLY_HOURS):
     monthly = Decimal(str(monthly_salary))
     return monthly / (Decimal("4.33") * Decimal(str(standard_weekly_hours)))
-
 
 def test_load_workload_assignments_forward_fills_grouped_fields(tmp_path):
     import pandas as pd
@@ -1889,7 +1859,6 @@ def test_load_workload_assignments_forward_fills_grouped_fields(tmp_path):
     assert assignments[1]["position"] == "Instructor I"
     assert assignments[1]["lecture"] == Decimal("2")
     assert assignments[1]["lab"] == Decimal("4")
-
 
 def test_load_payroll_projection_reads_consolidated_sheet(tmp_path):
     import pandas as pd
@@ -1966,7 +1935,6 @@ def test_load_payroll_projection_reads_consolidated_sheet(tmp_path):
     assert records[0]["hours_overload"] == Decimal("108")
     assert records[0]["source_row"] == 7
 
-
 def test_audit_payroll_projection_requires_workload_name_match():
     records = [
         {"number": 1, "name": "", "position": "Instructor I"},
@@ -1988,7 +1956,6 @@ def test_audit_payroll_projection_requires_workload_name_match():
     assert audited[2]["match_status"] == "unresolved"
     assert "not found" in audited[2]["match_reason"]
 
-
 def test_summarize_payroll_audit_counts_statuses():
     records = [
         {"match_status": "matched"},
@@ -2001,7 +1968,6 @@ def test_summarize_payroll_audit_counts_statuses():
         "matched_records": 1,
         "unresolved_records": 2,
     }
-
 
 def test_payroll_database_uses_separate_sqlite_file():
     assert payroll_engine.url.database is not None
@@ -2021,7 +1987,6 @@ def test_payroll_database_uses_separate_sqlite_file():
     finally:
         db_generator.close()
 
-
 def test_payroll_workload_schema_is_separate():
     PayrollBase.metadata.create_all(bind=payroll_engine)
 
@@ -2033,7 +1998,6 @@ def test_payroll_workload_schema_is_separate():
         assert "faculty" in PayrollWorkloadAssignment.__table__.columns
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
-
 
 def test_payroll_projection_schema_is_separate():
     PayrollBase.metadata.create_all(bind=payroll_engine)
@@ -2047,7 +2011,6 @@ def test_payroll_projection_schema_is_separate():
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-
 def test_payroll_audit_schema_is_separate():
     PayrollBase.metadata.create_all(bind=payroll_engine)
 
@@ -2057,7 +2020,6 @@ def test_payroll_audit_schema_is_separate():
         assert "created_at" in PayrollAuditRecord.__table__.columns
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
-
 
 def test_payroll_store_replaces_imported_records():
     PayrollBase.metadata.create_all(bind=payroll_engine)
@@ -2128,7 +2090,6 @@ def test_payroll_store_replaces_imported_records():
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-
 def test_payroll_store_replaces_audit_records():
     PayrollBase.metadata.create_all(bind=payroll_engine)
     db = TestSession(bind=payroll_engine)
@@ -2155,7 +2116,6 @@ def test_payroll_store_replaces_audit_records():
     finally:
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
-
 
 def test_payroll_import_persists_all_datasets_in_one_transaction(tmp_path):
     import pandas as pd
@@ -2240,7 +2200,6 @@ def test_payroll_import_persists_all_datasets_in_one_transaction(tmp_path):
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-
 def test_initialize_payroll_database_creates_payroll_tables():
     PayrollBase.metadata.drop_all(bind=payroll_engine)
 
@@ -2252,7 +2211,6 @@ def test_initialize_payroll_database_creates_payroll_tables():
         assert "payroll_audit_records" in PayrollBase.metadata.tables
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
-
 
 def test_app_lifespan_initializes_payroll_database(monkeypatch):
     initialized = []
@@ -2266,7 +2224,6 @@ def test_app_lifespan_initializes_payroll_database(monkeypatch):
         pass
 
     assert initialized == [True]
-
 
 def test_payroll_import_rolls_back_on_invalid_record():
     PayrollBase.metadata.create_all(bind=payroll_engine)
@@ -2294,7 +2251,6 @@ def test_payroll_import_rolls_back_on_invalid_record():
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-
 def test_payroll_page_renders_import_shell(client):
     response = client.get("/payroll")
 
@@ -2303,7 +2259,6 @@ def test_payroll_page_renders_import_shell(client):
     assert "Workload workbook" in response.text
     assert "Payroll projection workbook" in response.text
     assert "Select both workbooks, then import them for local reconciliation." in response.text
-
 
 def test_payroll_import_route_rejects_non_xlsx_upload(client):
     response = client.post(
@@ -2316,7 +2271,6 @@ def test_payroll_import_route_rejects_non_xlsx_upload(client):
 
     assert response.status_code == 400
     assert "must be an .xlsx file" in response.text
-
 
 def test_payroll_results_page_renders(client):
     PayrollBase.metadata.create_all(bind=payroll_engine)
@@ -2331,7 +2285,6 @@ def test_payroll_results_page_renders(client):
     assert "Workload records: 0" in response.text
     assert "Payroll records: 0" in response.text
     assert "Unresolved identities: 0" in response.text
-
 
 def test_payroll_import_redirects_to_results(client, monkeypatch):
     monkeypatch.setattr(
@@ -2374,16 +2327,13 @@ def test_faculty_profile_schema_contains_manual_entry_fields():
     assert "monthly_salary" in columns
     assert "withholding_tax_rate" in columns
 
-
 def test_dashboard_rejects_excessive_page_size(client):
     response = client.get("/dashboard?per_page=101")
     assert response.status_code == 422
 
-
 def test_scholar_list_rejects_excessive_limit(client):
     response = client.get("/scholars/list?limit=101")
     assert response.status_code == 422
-
 
 def test_assignment_update_cannot_target_another_scholar(client):
     client.post("/scholars", data={"name": "Assignment Owner", "department": "CCS"})
@@ -2404,7 +2354,6 @@ def test_assignment_update_cannot_target_another_scholar(client):
         assert assignment.department == "CCS"
     finally:
         db.close()
-
 
 def test_assignment_delete_cannot_target_another_scholar(client):
     client.post("/scholars", data={"name": "Assignment Owner", "department": "CCS"})
@@ -2445,7 +2394,6 @@ def test_grant_update_cannot_target_another_scholar(client):
     finally:
         db.close()
 
-
 def test_grant_delete_cannot_target_another_scholar(client):
     client.post("/scholars", data={"name": "Grant Owner"})
     client.post(
@@ -2464,7 +2412,6 @@ def test_grant_delete_cannot_target_another_scholar(client):
         assert db.get(Grant, 1) is not None
     finally:
         db.close()
-
 
 def test_grant_review_cannot_target_another_scholar(client):
     client.post("/scholars", data={"name": "Grant Owner"})
@@ -2495,7 +2442,6 @@ def test_validation_error_returns_full_error_page_for_normal_request(client):
     assert "<html" in response.text
     assert "Please fill in: query.per_page" in response.text
 
-
 def test_validation_error_returns_error_partial_for_htmx_request(client):
     response = client.get(
         "/dashboard?per_page=101",
@@ -2506,7 +2452,6 @@ def test_validation_error_returns_error_partial_for_htmx_request(client):
     assert 'class="alert alert-error"' in response.text
     assert "<html" not in response.text
     assert "Please fill in: query.per_page" in response.text
-
 
 def test_create_assignment_rejects_end_before_start(db_session):
     scholar = Scholar(name="Invalid Assignment Range Scholar")
@@ -2526,7 +2471,6 @@ def test_create_assignment_rejects_end_before_start(db_session):
             date(2025, 1, 1),
             date(2024, 12, 31),
         )
-
 
 def test_update_assignment_rejects_end_before_start(db_session):
     scholar = Scholar(name="Invalid Updated Assignment Range Scholar")
@@ -2582,7 +2526,6 @@ def test_create_grant_rejects_end_year_before_start_year(db_session):
             "Active",
             None,
         )
-
 
 def test_update_grant_rejects_end_year_before_start_year(db_session):
     scholar = Scholar(name="Invalid Updated Grant Range Scholar")
@@ -2645,7 +2588,6 @@ def test_assignment_create_rejects_malformed_start_date(client):
     finally:
         db.close()
 
-
 def test_assignment_update_rejects_malformed_end_date(client):
     db = TestSession()
     try:
@@ -2702,7 +2644,6 @@ def test_scholar_detail_renders_registered_assignment_action_urls(client):
     assert 'hx-get="/scholars/1/assignments/1/edit"' in response.text
     assert 'hx-delete="/scholars/1/assignments/1"' in response.text
 
-
 def test_assignment_edit_row_renders_registered_save_url(client):
     client.post(
         "/scholars",
@@ -2728,7 +2669,6 @@ def test_new_scholar_page_rejects_nonnumeric_age(client):
     assert "Age must be a whole number." in response.text
     assert 'value="twenty-five"' in response.text
 
-
 def test_htmx_scholar_create_rejects_nonnumeric_age(client):
     response = client.post(
         "/scholars",
@@ -2743,7 +2683,6 @@ def test_htmx_scholar_create_rejects_nonnumeric_age(client):
         assert db.query(Scholar).count() == 0
     finally:
         db.close()
-
 
 def test_scholar_update_rejects_nonnumeric_age(client):
     client.post("/scholars", data={"name": "Existing Scholar", "age": "25"})
@@ -2797,7 +2736,6 @@ def test_new_scholar_page_creates_initial_grant(client):
     finally:
         db.close()
 
-
 def test_new_scholar_page_rejects_initial_grant_without_program(client):
     response = client.post(
         "/scholars/new",
@@ -2848,7 +2786,6 @@ def test_new_scholar_page_rejects_malformed_initial_assignment_date(client):
         )
     finally:
         db.close()
-
 
 def test_htmx_scholar_create_rejects_malformed_initial_assignment_date(client):
     response = client.post(
@@ -3017,3 +2954,10 @@ def test_dashboard_rejects_oversized_search_query(client):
     response = client.get("/dashboard", params={"q": "x" * 201})
 
     assert response.status_code == 422
+
+def test_dashboard_and_export_reject_invalid_year_filter(client):
+    dashboard_response = client.get("/dashboard", params={"year": "not-a-year"})
+    export_response = client.get("/dashboard/export", params={"year": "not-a-year"})
+
+    assert dashboard_response.status_code == 422
+    assert export_response.status_code == 422

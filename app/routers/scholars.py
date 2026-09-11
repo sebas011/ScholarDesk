@@ -146,7 +146,10 @@ def _enrich_scholars(db: Session, scholars: list):
 def dashboard_page(
     request: Request,
     q: str | None = Query(default=None, max_length=200),
-    year: str | None = None,
+    year: str | None = Query(
+    default=None,
+    pattern=r"^(|19[0-9]{2}|[2-9][0-9]{3})$",
+    ),
     page: int = Query(default=1, ge=1, le=10_000),
     per_page: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -182,7 +185,10 @@ def dashboard_page(
 def scholars_page(
     request: Request,
     q: str | None = Query(default=None, max_length=200),
-    year: str | None = None,
+    year: str | None = Query(
+    default=None,
+    pattern=r"^(|19[0-9]{2}|[2-9][0-9]{3})$",
+    ),
     scholar_id: int | None = None,
     db: Session = Depends(get_db),
 ):
@@ -227,7 +233,10 @@ def scholars_page(
 def scholars_list_partial(
     request: Request,
     q: str | None = Query(default=None, max_length=200),
-    year: str | None = None,
+    year: str | None = Query(
+    default=None,
+    pattern=r"^(|19[0-9]{2}|[2-9][0-9]{3})$",
+    ),
     offset: int = Query(default=0, ge=0, le=1_000_000),
     limit: int = Query(default=50, ge=1, le=100),
     selected_id: int | None = None,
@@ -562,7 +571,10 @@ def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_
 def dashboard_export(
     request: Request,
     q: str | None = Query(default=None, max_length=200),
-    year: str | None = None,
+    year: str | None = Query(
+    default=None,
+    pattern=r"^(|19[0-9]{2}|[2-9][0-9]{3})$",
+    ),
     db: Session = Depends(get_db),
 ):
     """Export every scholar, with one row per matching grant and blank grant
