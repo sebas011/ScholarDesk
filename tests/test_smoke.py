@@ -3037,3 +3037,36 @@ def test_create_grant_rejects_oversized_remarks(db_session):
             "Active",
             "x" * 5_001,
         )
+
+def test_add_review_rejects_oversized_comments(db_session):
+    scholar = Scholar(name="Oversized Review Comments Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    grant = grant_service.create_grant(
+        db_session,
+        scholar.id,
+        "Review Comments Limit Grant",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        "Active",
+        None,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"Review comments are too long \(max 5000 characters\)\.",
+    ):
+        grant_service.add_review(
+            db_session,
+            scholar.id,
+            grant.id,
+            "approved",
+            None,
+            "x" * 5_001,
+        )

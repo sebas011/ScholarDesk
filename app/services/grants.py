@@ -16,6 +16,8 @@ DELIVERING_HEI_MAX_LENGTH = 200
 DATE_TEXT_MAX_LENGTH = 100
 EXTENSION_MAX_LENGTH = 200
 REMARKS_MAX_LENGTH = 5_000
+REVIEWER_MAX_LENGTH = 200
+REVIEW_COMMENTS_MAX_LENGTH = 5_000
 
 def _validate_field_lengths(
     program_applied: str,
@@ -197,12 +199,23 @@ def add_review(
         raise ValueError("Grant not found.")
     if decision not in VALID_REVIEW_DECISIONS:
         raise ValueError(f"Invalid review decision: {decision}")
+    reviewer = (reviewer or "").strip() or None
+    comments = (comments or "").strip() or None
+
+    if reviewer and len(reviewer) > REVIEWER_MAX_LENGTH:
+        raise ValueError(
+            f"Reviewer is too long (max {REVIEWER_MAX_LENGTH} characters)."
+    )
+    if comments and len(comments) > REVIEW_COMMENTS_MAX_LENGTH:
+        raise ValueError(
+            f"Review comments are too long (max {REVIEW_COMMENTS_MAX_LENGTH} characters)."
+    )
 
     review = GrantReview(
         grant_id=grant_id,
         decision=decision,
-        reviewer=(reviewer or "").strip() or None,
-        comments=(comments or "").strip() or None,
+        reviewer=reviewer,
+        comments=comments,
         decided_at=datetime.now() if decision != "pending" else None,
     )
     db.add(review)
