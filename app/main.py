@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 from urllib.parse import urlsplit
+import secrets
 
 from app.database import Base, engine
 from app.routers import scholars, records, launcher
@@ -37,27 +38,61 @@ app = FastAPI(
     dependencies=[Depends(verify_credentials)],
 )
 
+app.include_router(scholars.router)
+app.include_router(records.router)
+app.include_router(launcher.router)
+
 PAYROLL_PATH_PREFIX = "/payroll"
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+CSRF_COOKIE_NAME = "scholardesk_csrf"
+CSRF_FORM_FIELD = "csrf_token"
+CSRF_HEADER_NAME = "x-csrf-token"
 
 @app.middleware("http")
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
+    csrf_token = request.cookies.get(CSRF_COOKIE_NAME)
+    should_set_csrf_cookie = csrf_token is None
+
+    if csrf_token is None:
+        csrf_token = secrets.token_urlsafe(32)
+
+    request.state.csrf_token = csrf_token
+
     if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
         f"{PAYROLL_PATH_PREFIX}/"
     ):
         response = HTMLResponse(status_code=404)
-    elif request.method in UNSAFE_HTTP_METHODS and (
-        origin := request.headers.get("origin")
-    ):
-        origin_host = urlsplit(origin).netloc.lower()
+    elif request.method in UNSAFE_HTTP_METHODS:
+        origin = request.headers.get("origin")
+        origin_host = urlsplit(origin).netloc.lower() if origin else ""
         request_host = request.headers.get("host", "").lower()
 
-        if not request_host or origin_host != request_host:
+        submitted_token = request.headers.get(CSRF_HEADER_NAME)
+        if submitted_token is None:
+            form = await request.form()
+            submitted_token = form.get(CSRF_FORM_FIELD)
+
+        if (
+            origin
+            and (not request_host or origin_host != request_host)
+        ) or (
+            not isinstance(submitted_token, str)
+            or not secrets.compare_digest(submitted_token, csrf_token)
+        ):
             response = HTMLResponse(status_code=403)
         else:
             response = await call_next(request)
     else:
         response = await call_next(request)
+
+    if should_set_csrf_cookie:
+        response.set_cookie(
+            CSRF_COOKIE_NAME,
+            csrf_token,
+            httponly=False,
+            samesite="strict",
+            path="/",
+        )
 
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -65,29 +100,27 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     response.headers["Referrer-Policy"] = "same-origin"
     return response
 
-app.include_router(launcher.router)
-app.include_router(scholars.router)
-app.include_router(records.router)
 
+def _render_error(request: Request, message: str, status_code: int, headers: dict | None = None):
+    """Render a generic HTML error message for both standard and htmx requests."""
+    try:
+        return templates.TemplateResponse(
+            request,
+            "error.html",
+            {"error": message},
+            status_code=status_code,
+            headers=headers or {},
+        )
+    except Exception:
+        response = HTMLResponse(
+            content=f"<div class='error'>{message}</div>",
+            status_code=status_code,
+        )
+        if headers:
+            for key, value in headers.items():
+                response.headers[key] = value
+        return response
 
-def _render_error(
-    request: Request,
-    message: str,
-    status_code: int,
-    headers: dict[str, str] | None = None,
-):
-    template_name = (
-        "partials/generic_error.html"
-        if request.headers.get("HX-Request") == "true"
-        else "error.html"
-    )
-    return templates.TemplateResponse(
-        request,
-        template_name,
-        {"error": message},
-        status_code=status_code,
-        headers=headers,
-    )
 
 @app.exception_handler(RequestValidationError)
 async def on_validation_error(request: Request, exc: RequestValidationError):
@@ -116,6 +149,13 @@ async def on_validation_error(request: Request, exc: RequestValidationError):
             status_code=422,
         )
 
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+        request,
+        "partials/generic_error.html",
+        {"error": message},
+        status_code=422,
+    )
     return _render_error(request, message, status_code=422)
 
 

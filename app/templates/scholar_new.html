@@ -16,6 +16,7 @@
     {% endif %}
 
     <form method="post" action="/scholars/new" class="space-y-5">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
         <div class="card p-5">
             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Personal Information</h4>
             <div class="grid grid-cols-2 gap-4">

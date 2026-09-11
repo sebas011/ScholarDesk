@@ -127,8 +127,57 @@ def fresh_db():
 def client():
     app.dependency_overrides[verify_credentials] = override_verify_credentials
     app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
 
+    test_client = TestClient(app)
+    bootstrap_response = test_client.get("/docs")
+    csrf_token = test_client.cookies.get("scholardesk_csrf")
+
+    assert bootstrap_response.status_code == 200
+    assert csrf_token is not None
+
+    test_client.headers["X-CSRF-Token"] = csrf_token
+    try:
+        yield test_client
+    finally:
+        test_client.close()
+
+@pytest.fixture
+def non_raising_client():
+    app.dependency_overrides[verify_credentials] = override_verify_credentials
+    app.dependency_overrides[get_db] = override_get_db
+
+    test_client = TestClient(app, raise_server_exceptions=False)
+    bootstrap_response = test_client.get("/docs")
+    csrf_token = test_client.cookies.get("scholardesk_csrf")
+
+    assert bootstrap_response.status_code == 200
+    assert csrf_token is not None
+
+    test_client.headers["X-CSRF-Token"] = csrf_token
+    try:
+        yield test_client
+    finally:
+        test_client.close()
+
+def test_mutation_without_csrf_token_is_rejected():
+    bare_client = TestClient(app)
+    try:
+        response = bare_client.post(
+            "/scholars",
+            data={"name": "Missing CSRF Token Scholar"},
+        )
+    finally:
+        bare_client.close()
+
+    assert response.status_code == 403
+
+
+def test_new_scholar_form_contains_csrf_token(client):
+    response = client.get("/scholars/new")
+    csrf_token = client.cookies["scholardesk_csrf"]
+
+    assert response.status_code == 200
+    assert f'name="csrf_token" value="{csrf_token}"' in response.text
 
 def test_home_starts_empty(client):
     resp = client.get("/home")
@@ -1424,7 +1473,9 @@ def test_add_scholar_note_missing_scholar_shows_error(client):
     assert "Scholar not found." in response.text
 
 
-def test_add_scholar_note_unexpected_error_shows_generic_error(client, monkeypatch):
+def test_add_scholar_note_unexpected_error_shows_generic_error(
+    client, monkeypatch, non_raising_client
+):
     client.post(
         "/scholars",
         data={"name": "Note Error Scholar", "department": "CCS"},
@@ -1435,14 +1486,10 @@ def test_add_scholar_note_unexpected_error_shows_generic_error(client, monkeypat
 
     monkeypatch.setattr(note_service, "add_note", fail_add_note)
 
-    non_raising_client = TestClient(app, raise_server_exceptions=False)
-    try:
-        response = non_raising_client.post(
+    response = non_raising_client.post(
         "/scholars/1/notes",
         data={"content": "Test note"},
     )
-    finally:
-        non_raising_client.close()
 
     assert response.status_code == 500
     assert "Something went wrong. Please try again." in response.text
@@ -1471,7 +1518,9 @@ def test_add_grant_review_route_success(client):
     assert "Review recorded." in response.text
 
 
-def test_add_grant_review_unexpected_error_shows_generic_error(client, monkeypatch):
+def test_add_grant_review_unexpected_error_shows_generic_error(
+    client, monkeypatch, non_raising_client
+):
     client.post(
         "/scholars",
         data={"name": "Review Error Scholar", "department": "CCS"},
@@ -1486,18 +1535,14 @@ def test_add_grant_review_unexpected_error_shows_generic_error(client, monkeypat
 
     monkeypatch.setattr(grant_service, "add_review", fail_add_review)
 
-    non_raising_client = TestClient(app, raise_server_exceptions=False)
-    try:
-        response = non_raising_client.post(
-            "/grants/1/reviews?scholar_id=1",
+    response = non_raising_client.post(
+        "/grants/1/reviews?scholar_id=1",
         data={
             "decision": "approved",
             "reviewer": "Reviewer One",
             "comments": "Test failure path.",
         },
     )
-    finally:
-        non_raising_client.close()
 
     assert response.status_code == 500
     assert "Something went wrong. Please try again." in response.text
@@ -2833,7 +2878,9 @@ def test_blank_note_shows_validation_error(client):
     assert response.status_code == 200
     assert "Note cannot be empty." in response.text
 
-def test_add_grant_review_unexpected_error_uses_generic_500(client, monkeypatch):
+def test_add_grant_review_unexpected_error_uses_generic_500(
+    client, monkeypatch, non_raising_client
+):
     client.post("/scholars", data={"name": "Review Error Scholar"})
     client.post(
         "/scholars/1/grants",
@@ -2845,14 +2892,10 @@ def test_add_grant_review_unexpected_error_uses_generic_500(client, monkeypatch)
 
     monkeypatch.setattr(grant_service, "add_review", fail_add_review)
 
-    non_raising_client = TestClient(app, raise_server_exceptions=False)
-    try:
-        response = non_raising_client.post(
-            "/grants/1/reviews?scholar_id=1",
-            data={"decision": "approved"},
-        )
-    finally:
-        non_raising_client.close()
+    response = non_raising_client.post(
+        "/grants/1/reviews?scholar_id=1",
+        data={"decision": "approved"},
+    )
 
     assert response.status_code == 500
     assert "Something went wrong. Please try again." in response.text
