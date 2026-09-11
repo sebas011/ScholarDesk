@@ -15,7 +15,7 @@ TYPE_OF_GRANT_MAX_LENGTH = 150
 DELIVERING_HEI_MAX_LENGTH = 200
 DATE_TEXT_MAX_LENGTH = 100
 EXTENSION_MAX_LENGTH = 200
-
+REMARKS_MAX_LENGTH = 5_000
 
 def _validate_field_lengths(
     program_applied: str,
@@ -103,6 +103,9 @@ def create_grant(
     date_started = (date_started or "").strip() or None
     date_ended = (date_ended or "").strip() or None
     extension = (extension or "").strip() or None
+    remarks = (remarks or "").strip() or None
+    if remarks and len(remarks) > REMARKS_MAX_LENGTH:
+        raise ValueError(f"Remarks are too long (max {REMARKS_MAX_LENGTH} characters).")
     _validate_field_lengths(
     program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
     )
@@ -118,7 +121,7 @@ def create_grant(
         end_year=end_year,
         extension=extension,
         status=status,
-        remarks=(remarks or "").strip() or None,
+        remarks=remarks,
     )
     db.add(grant)
     db.flush()
@@ -154,6 +157,9 @@ def update_grant(
     date_started = (date_started or "").strip() or None
     date_ended = (date_ended or "").strip() or None
     extension = (extension or "").strip() or None
+    remarks = (remarks or "").strip() or None
+    if remarks and len(remarks) > REMARKS_MAX_LENGTH:
+        raise ValueError(f"Remarks are too long (max {REMARKS_MAX_LENGTH} characters).")
     _validate_field_lengths(
     program_applied, type_of_grant, delivering_hei, date_started, date_ended, extension
 )

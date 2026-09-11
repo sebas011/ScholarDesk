@@ -3016,3 +3016,24 @@ def test_dashboard_enrichment_uses_primary_assignment_and_latest_grant(db_sessio
         "rank": "Lecturer",
         "status": "Active",
     }
+
+def test_create_grant_rejects_oversized_remarks(db_session):
+    scholar = Scholar(name="Oversized Grant Remarks Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match=r"Remarks are too long \(max 5000 characters\)\."):
+        grant_service.create_grant(
+            db_session,
+            scholar.id,
+            "Remarks Limit Grant",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "Active",
+            "x" * 5_001,
+        )
