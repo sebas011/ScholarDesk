@@ -46,14 +46,18 @@ def load_credentials() -> tuple[str, str]:
             key, _, value = line.partition("=")
             values[key.strip()] = value.strip()
     return (
-        values.get("username", DEFAULT_USERNAME),
-        values.get("password", DEFAULT_PASSWORD),
+        values.get("username", ""),
+        values.get("password", ""),
     )
 
 
 def using_default_password() -> bool:
-    _, password = load_credentials()
-    return password == DEFAULT_PASSWORD
+    username, password = load_credentials()
+    return (
+        not username
+        or not password
+        or (username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD)
+    )
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) -> str:

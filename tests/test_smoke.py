@@ -3098,3 +3098,11 @@ def test_new_credentials_file_uses_generated_password(tmp_path, monkeypatch):
     assert password != "changeme"
     assert len(password) >= 24
     assert f"password={password}" in credentials_file.read_text(encoding="utf-8")
+
+def test_auth_incomplete_credentials_file_fails_closed(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    credentials_file.write_text("username=admin\n", encoding="utf-8")
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    assert auth.load_credentials() == ("admin", "")
+    assert auth.using_default_password() is True
