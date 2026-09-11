@@ -3116,3 +3116,34 @@ def test_security_headers_protect_html_and_csv_responses(client):
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert response.headers["referrer-policy"] == "same-origin"
+
+def test_cross_origin_mutation_is_rejected(client):
+    response = client.post(
+        "/scholars",
+        data={"name": "Cross Origin Blocked Scholar"},
+        headers={"Origin": "https://attacker.example"},
+    )
+
+    assert response.status_code == 403
+
+    db = TestSession()
+    try:
+        assert (
+            db.query(Scholar)
+            .filter_by(name="Cross Origin Blocked Scholar")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
+
+
+def test_same_origin_mutation_is_allowed(client):
+    response = client.post(
+        "/scholars",
+        data={"name": "Same Origin Allowed Scholar"},
+        headers={"Origin": "http://testserver"},
+    )
+
+    assert response.status_code == 200
+    assert "Same Origin Allowed Scholar" in response.text

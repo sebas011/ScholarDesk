@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
+from urllib.parse import urlsplit
 
 from app.database import Base, engine
 from app.routers import scholars, records, launcher
@@ -35,7 +36,9 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(verify_credentials)],
 )
+
 PAYROLL_PATH_PREFIX = "/payroll"
+UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 @app.middleware("http")
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
@@ -43,6 +46,16 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
         f"{PAYROLL_PATH_PREFIX}/"
     ):
         response = HTMLResponse(status_code=404)
+    elif request.method in UNSAFE_HTTP_METHODS and (
+        origin := request.headers.get("origin")
+    ):
+        origin_host = urlsplit(origin).netloc.lower()
+        request_host = request.headers.get("host", "").lower()
+
+        if not request_host or origin_host != request_host:
+            response = HTMLResponse(status_code=403)
+        else:
+            response = await call_next(request)
     else:
         response = await call_next(request)
 
