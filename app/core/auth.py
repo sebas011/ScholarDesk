@@ -1,16 +1,14 @@
-"""
-Single shared username/password gate for the whole app, via HTTP Basic
-Auth (the browser's built-in login prompt - no custom login page or
-session handling needed).
+"""Local HTTP Basic authentication and credential administration helpers.
 
-Credentials live in a plain-text file next to grants.db, not an
-environment variable - this app is meant to be handed to non-technical
-people, and "edit this text file" is a much lower bar than "set a
-Windows environment variable." Auto-generated with an obvious default
-on first run so the app works out of the box. The application binds to
-localhost by default; LAN access requires explicit configuration.
-until that default is changed.
+Passwords written by the administrator helper use PBKDF2-HMAC-SHA256. Legacy
+``password=`` files remain readable only to allow a safe, deliberate migration;
+running ``python -m app.admin`` replaces them with a non-reversible hash.
 """
+
+from __future__ import annotations
+
+import base64
+import hashlib
 import secrets
 
 from fastapi import Depends, HTTPException, status
@@ -21,52 +19,131 @@ from app.database import app_dir
 CREDENTIALS_FILE = app_dir / "auth.txt"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
-INITIAL_PASSWORD_BYTES = 24
+PASSWORD_HASH_SCHEME = "pbkdf2_sha256"
+PASSWORD_HASH_ITERATIONS = 600_000
+PASSWORD_SALT_BYTES = 16
+PASSWORD_MAX_LENGTH = 128
+USERNAME_MAX_LENGTH = 200
 
 security = HTTPBasic()
 
+
 def _ensure_credentials_file() -> None:
+    """Create a fail-closed setup file; never generate a plaintext password."""
     if not CREDENTIALS_FILE.exists():
-        initial_password = secrets.token_urlsafe(INITIAL_PASSWORD_BYTES)
         CREDENTIALS_FILE.write_text(
-            "# Keep this file private. Change the generated password before "
-            "enabling LAN access.\n"
+            "# Set credentials with: python -m app.admin\n"
             f"username={DEFAULT_USERNAME}\n"
-            f"password={initial_password}\n",
+            "password_hash=\n",
             encoding="utf-8",
         )
 
-def load_credentials() -> tuple[str, str]:
-    """Re-read on every request (not cached) so editing auth.txt while
-    the app is running takes effect without a restart."""
+
+def _load_credential_values() -> dict[str, str]:
     _ensure_credentials_file()
     values: dict[str, str] = {}
     for line in CREDENTIALS_FILE.read_text(encoding="utf-8").splitlines():
         if "=" in line:
             key, _, value = line.partition("=")
             values[key.strip()] = value.strip()
-    return (
-        values.get("username", ""),
-        values.get("password", ""),
+    return values
+
+
+def load_credentials() -> tuple[str, str]:
+    """Return the configured username and stored credential value.
+
+    This preserves the previous return type for callers. The second value may
+    now be a password hash, never a generated plaintext password.
+    """
+    values = _load_credential_values()
+    return values.get("username", ""), values.get("password_hash") or values.get("password", "")
+
+
+def _validate_username(username: str) -> str:
+    username = username.strip()
+    if not username:
+        raise ValueError("Username is required.")
+    if len(username) > USERNAME_MAX_LENGTH:
+        raise ValueError(f"Username is too long (max {USERNAME_MAX_LENGTH} characters).")
+    if any(character in username for character in "\r\n="):
+        raise ValueError("Username contains unsupported characters.")
+    return username
+
+
+def _validate_password(password: str) -> str:
+    if not password:
+        raise ValueError("Password is required.")
+    if len(password) > PASSWORD_MAX_LENGTH:
+        raise ValueError(f"Password is too long (max {PASSWORD_MAX_LENGTH} characters).")
+    return password
+
+
+def hash_password(password: str) -> str:
+    """Create a PBKDF2-HMAC-SHA256 record suitable for ``auth.txt``."""
+    password = _validate_password(password)
+    salt = secrets.token_bytes(PASSWORD_SALT_BYTES)
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PASSWORD_HASH_ITERATIONS
     )
+    encoded_salt = base64.urlsafe_b64encode(salt).decode("ascii")
+    encoded_key = base64.urlsafe_b64encode(derived_key).decode("ascii")
+    return f"{PASSWORD_HASH_SCHEME}${PASSWORD_HASH_ITERATIONS}${encoded_salt}${encoded_key}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Safely verify a supported PBKDF2 record, returning False if malformed."""
+    try:
+        scheme, iterations_text, encoded_salt, encoded_key = stored_hash.split("$", 3)
+        iterations = int(iterations_text)
+        if scheme != PASSWORD_HASH_SCHEME or iterations != PASSWORD_HASH_ITERATIONS:
+            return False
+        salt = base64.urlsafe_b64decode(encoded_salt.encode("ascii"))
+        expected_key = base64.urlsafe_b64decode(encoded_key.encode("ascii"))
+        actual_key = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, iterations
+        )
+    except (UnicodeEncodeError, ValueError):
+        return False
+    return secrets.compare_digest(actual_key, expected_key)
+
+
+def set_hashed_credentials(username: str, password: str) -> None:
+    """Atomically replace ``auth.txt`` with one PBKDF2-protected account."""
+    username = _validate_username(username)
+    password_hash = hash_password(password)
+    replacement_file = CREDENTIALS_FILE.with_name(f".{CREDENTIALS_FILE.name}.new")
+    replacement_file.write_text(
+        "# Managed by python -m app.admin. Do not store plaintext passwords here.\n"
+        f"username={username}\n"
+        f"password_hash={password_hash}\n",
+        encoding="utf-8",
+    )
+    replacement_file.replace(CREDENTIALS_FILE)
+
+
+def _load_auth_record() -> tuple[str, str, bool]:
+    values = _load_credential_values()
+    password_hash = values.get("password_hash", "")
+    if password_hash:
+        return values.get("username", ""), password_hash, True
+    return values.get("username", ""), values.get("password", ""), False
 
 
 def using_default_password() -> bool:
-    username, password = load_credentials()
-    return (
-        not username
-        or not password
-        or (username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD)
+    username, credential, is_hashed = _load_auth_record()
+    return not username or not credential or (
+        not is_hashed and username == DEFAULT_USERNAME and credential == DEFAULT_PASSWORD
     )
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) -> str:
-    correct_username, correct_password = load_credentials()
-    # secrets.compare_digest instead of == - avoids leaking timing
-    # information about how many characters matched, standard practice
-    # for comparing secrets even in a low-stakes local-network app.
+    correct_username, stored_credential, is_hashed = _load_auth_record()
     is_valid_username = secrets.compare_digest(credentials.username, correct_username)
-    is_valid_password = secrets.compare_digest(credentials.password, correct_password)
+    is_valid_password = (
+        verify_password(credentials.password, stored_credential)
+        if is_hashed
+        else secrets.compare_digest(credentials.password, stored_credential)
+    )
     if not (is_valid_username and is_valid_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
