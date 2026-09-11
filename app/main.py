@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 from urllib.parse import urlsplit
 import secrets
-
+from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
 from app.database import Base, engine
 from app.routers import scholars, records, launcher
 from app.templates_config import templates
@@ -47,7 +47,6 @@ UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 CSRF_COOKIE_NAME = "scholardesk_csrf"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_HEADER_NAME = "x-csrf-token"
-MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
 
 @app.middleware("http")
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
@@ -58,20 +57,8 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
         csrf_token = secrets.token_urlsafe(32)
 
     request.state.csrf_token = csrf_token
-    content_length = request.headers.get("content-length")
 
-    try:
-        request_body_bytes = int(content_length) if content_length is not None else 0
-    except ValueError:
-        request_body_bytes = MAX_REQUEST_BODY_BYTES + 1
-
-    if request_body_bytes > MAX_REQUEST_BODY_BYTES:
-        response = _render_error(
-            request,
-            "Request is too large. Please reduce it and try again.",
-            status_code=413,
-        )
-    elif request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
+    if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
         f"{PAYROLL_PATH_PREFIX}/"
     ):
         response = HTMLResponse(status_code=404)
@@ -113,6 +100,10 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     response.headers["Referrer-Policy"] = "same-origin"
     return response
 
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=MAX_REQUEST_BODY_BYTES,
+)
 
 def _render_error(request: Request, message: str, status_code: int, headers: dict | None = None):
     """Render a generic HTML error message for both standard and htmx requests."""

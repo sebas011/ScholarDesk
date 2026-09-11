@@ -55,6 +55,8 @@ from sqlalchemy.orm import Query
 from app.routers.scholars import _enrich_scholars
 from app.core import auth as auth_service
 from app.main import MAX_REQUEST_BODY_BYTES
+import asyncio
+from app.core.request_limits import RequestBodyLimitMiddleware
 from app.payroll_database import (
     PayrollBase,
     get_payroll_db,
@@ -3214,3 +3216,53 @@ def test_oversized_htmx_write_returns_error_partial(client):
     assert response.status_code == 413
     assert 'class="alert alert-error"' in response.text
     assert "<html" not in response.text
+
+def test_streamed_oversized_request_is_rejected_without_content_length():
+    downstream_called = False
+    sent_messages = []
+
+    async def downstream(scope, receive, send):
+        nonlocal downstream_called
+        downstream_called = True
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"unexpected"})
+
+    incoming_messages = iter(
+        [
+            {
+                "type": "http.request",
+                "body": b"x" * 4,
+                "more_body": True,
+            },
+            {
+                "type": "http.request",
+                "body": b"x" * 4,
+                "more_body": False,
+            },
+        ]
+    )
+
+    async def receive():
+        return next(incoming_messages)
+
+    async def send(message):
+        sent_messages.append(message)
+
+    middleware = RequestBodyLimitMiddleware(downstream, max_body_bytes=7)
+
+    asyncio.run(
+        middleware(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/scholars",
+                "headers": [(b"hx-request", b"true")],
+            },
+            receive,
+            send,
+        )
+    )
+
+    assert downstream_called is False
+    assert sent_messages[0]["status"] == 413
+    assert b"Request is too large" in sent_messages[1]["body"]
