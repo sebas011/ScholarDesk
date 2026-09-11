@@ -5,7 +5,7 @@ per-scholar Excel-range walk; the database does the counting.
 
 from datetime import date
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.models import Scholar, DepartmentAssignment, Grant
@@ -90,37 +90,45 @@ def years_with_data(db: Session) -> list[int]:
     used to populate the year-filter dropdown. Years are clamped to a
     reasonable window to prevent garbage data (e.g. 1900-2100) from
     creating an unusable dropdown."""
-    from datetime import date
-
     current_year = date.today().year
     min_year = current_year - 50
     max_year = current_year + 5
 
-    years: set[int] = set()
-    for date_started, date_ended in (
-        db.query(DepartmentAssignment.date_started, DepartmentAssignment.date_ended)
-        .filter(DepartmentAssignment.date_started.isnot(None))
-        .all()
-    ):
-        end_year = date_ended.year if date_ended else date_started.year
-        start = max(date_started.year, min_year)
-        end = min(end_year, max_year)
-        if start <= end:
-            years.update(range(start, end + 1))
-
-    for start_year, end_year in (
-        db.query(Grant.start_year, Grant.end_year)
-        .filter(Grant.start_year.isnot(None))
-        .all()
-    ):
-        final_end = end_year if end_year else start_year
-        start = max(start_year, min_year)
-        end = min(final_end, max_year)
-        if start <= end:
-            years.update(range(start, end + 1))
-
-    return sorted(years, reverse=True)
-
+    rows = db.execute(
+        text(
+            """
+            WITH RECURSIVE calendar(year) AS (
+                SELECT :min_year
+                UNION ALL
+                SELECT year + 1
+                FROM calendar
+                WHERE year < :max_year
+            )
+            SELECT year
+            FROM calendar
+            WHERE EXISTS (
+                SELECT 1
+                FROM department_assignments
+                WHERE date_started IS NOT NULL
+                  AND date_started <= printf('%04d-12-31', calendar.year)
+                  AND (
+                      date_ended IS NULL
+                      OR date_ended >= printf('%04d-01-01', calendar.year)
+                  )
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM grants
+                WHERE start_year IS NOT NULL
+                  AND start_year <= calendar.year
+                  AND (end_year IS NULL OR end_year >= calendar.year)
+            )
+            ORDER BY year DESC
+            """
+        ),
+        {"min_year": min_year, "max_year": max_year},
+    ).scalars()
+    return list(rows)
 
 def department_distribution(db: Session, year: int | None = None) -> dict[str, int]:
     """Each scholar counted under their PRIMARY (earliest) assignment only,

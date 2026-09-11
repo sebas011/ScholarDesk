@@ -3100,3 +3100,31 @@ def test_department_distribution_sql_grouping_preserves_primary_assignment_rules
     assert distribution["CCS"] == 1
     assert distribution["Admin Staff"] == 1
     assert "CIT" not in distribution
+
+def test_years_with_data_includes_only_years_touched_by_ranges(db_session):
+    scholar = Scholar(name="Available Years Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    db_session.add(
+        DepartmentAssignment(
+            scholar_id=scholar.id,
+            department="CCS",
+            date_started=date(2024, 6, 1),
+            date_ended=date(2025, 5, 31),
+        )
+    )
+    db_session.add(
+        Grant(
+            scholar_id=scholar.id,
+            program_applied="Available Years Grant",
+            start_year=2026,
+            end_year=2026,
+            status="Active",
+        )
+    )
+    db_session.commit()
+
+    years = stats_service.years_with_data(db_session)
+
+    assert {2024, 2025, 2026}.issubset(years)
