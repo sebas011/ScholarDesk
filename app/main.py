@@ -38,12 +38,19 @@ app = FastAPI(
 PAYROLL_PATH_PREFIX = "/payroll"
 
 @app.middleware("http")
-async def hide_payroll_routes(request: Request, call_next):
+async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
         f"{PAYROLL_PATH_PREFIX}/"
     ):
-        return HTMLResponse(status_code=404)
-    return await call_next(request)
+        response = HTMLResponse(status_code=404)
+    else:
+        response = await call_next(request)
+
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    return response
 
 app.include_router(launcher.router)
 app.include_router(scholars.router)

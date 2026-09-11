@@ -3106,3 +3106,13 @@ def test_auth_incomplete_credentials_file_fails_closed(tmp_path, monkeypatch):
 
     assert auth.load_credentials() == ("admin", "")
     assert auth.using_default_password() is True
+
+def test_security_headers_protect_html_and_csv_responses(client):
+    for response in (
+        client.get("/dashboard"),
+        client.get("/dashboard/export"),
+    ):
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert response.headers["referrer-policy"] == "same-origin"
