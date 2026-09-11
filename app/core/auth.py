@@ -21,17 +21,20 @@ from app.database import app_dir
 CREDENTIALS_FILE = app_dir / "auth.txt"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
+INITIAL_PASSWORD_BYTES = 24
 
 security = HTTPBasic()
 
-
 def _ensure_credentials_file() -> None:
     if not CREDENTIALS_FILE.exists():
+        initial_password = secrets.token_urlsafe(INITIAL_PASSWORD_BYTES)
         CREDENTIALS_FILE.write_text(
-            f"username={DEFAULT_USERNAME}\npassword={DEFAULT_PASSWORD}\n",
+            "# Keep this file private. Change the generated password before "
+            "enabling LAN access.\n"
+            f"username={DEFAULT_USERNAME}\n"
+            f"password={initial_password}\n",
             encoding="utf-8",
         )
-
 
 def load_credentials() -> tuple[str, str]:
     """Re-read on every request (not cached) so editing auth.txt while

@@ -53,6 +53,7 @@ from app.payroll_database import initialize_payroll_database
 from app.payroll_models import FacultyProfile
 from sqlalchemy.orm import Query
 from app.routers.scholars import _enrich_scholars
+from app.core import auth as auth_service
 
 from app.payroll_database import (
     PayrollBase,
@@ -558,12 +559,16 @@ def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, passw
     assert error.value.headers == {"WWW-Authenticate": "Basic"}
 
 
-def test_auth_creates_default_credentials_file(tmp_path, monkeypatch):
+def test_auth_creates_generated_credentials_file(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
 
-    assert auth.load_credentials() == ("admin", "changeme")
-    assert credentials_file.exists()
+    username, password = auth.load_credentials()
+
+    assert username == "admin"
+    assert password != "changeme"
+    assert len(password) >= 24
+    assert f"password={password}" in credentials_file.read_text(encoding="utf-8")
 
 def test_parse_date_handles_valid_blank_and_invalid_values():
     assert parse_date("2025-01-01") == date(2025, 1, 1)
@@ -3082,3 +3087,14 @@ def test_new_scholar_page_rejects_malformed_initial_grant_year(client):
         )
     finally:
         db.close()
+
+def test_new_credentials_file_uses_generated_password(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth_service, "CREDENTIALS_FILE", credentials_file)
+
+    username, password = auth_service.load_credentials()
+
+    assert username == "admin"
+    assert password != "changeme"
+    assert len(password) >= 24
+    assert f"password={password}" in credentials_file.read_text(encoding="utf-8")
