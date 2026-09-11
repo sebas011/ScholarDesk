@@ -3128,3 +3128,27 @@ def test_years_with_data_includes_only_years_touched_by_ranges(db_session):
     years = stats_service.years_with_data(db_session)
 
     assert {2024, 2025, 2026}.issubset(years)
+
+def test_new_scholar_page_rejects_malformed_initial_grant_year(client):
+    response = client.post(
+        "/scholars/new",
+        data={
+            "name": "Malformed Initial Grant Year Scholar",
+            "program_applied": "Initial Grant",
+            "start_year": "20X6",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Start year must be a four-digit year between 1900 and 9999." in response.text
+
+    db = TestSession()
+    try:
+        assert (
+            db.query(Scholar)
+            .filter_by(name="Malformed Initial Grant Year Scholar")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()

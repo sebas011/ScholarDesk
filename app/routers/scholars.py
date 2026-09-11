@@ -67,6 +67,13 @@ def _parse_optional_assignment_date(value: str, field_name: str) -> date | None:
 
 router = APIRouter()
 
+def _parse_optional_grant_year(value: str, field_name: str) -> int | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if not (normalized.isdigit() and 1900 <= int(normalized) <= 9999):
+        raise ValueError(f"{field_name} must be a four-digit year between 1900 and 9999.")
+    return int(normalized)
 
 @router.get("/home", response_class=HTMLResponse)
 def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
@@ -372,6 +379,9 @@ def create_scholar_page(
         if grant_details_entered and not program_applied.strip():
             raise ValueError("Program applied is required when adding an initial grant.")
 
+        parsed_start_year = _parse_optional_grant_year(start_year, "Start year")
+        parsed_end_year = _parse_optional_grant_year(end_year, "End year")
+
         if program_applied.strip():
             grant_service.create_grant(
                 db,
@@ -381,8 +391,8 @@ def create_scholar_page(
                 delivering_hei,
                 grant_date_started,
                 grant_date_ended,
-                int(start_year) if start_year.strip().isdigit() else None,
-                int(end_year) if end_year.strip().isdigit() else None,
+                parsed_start_year,
+                parsed_end_year,
                 extension,
                 grant_status,
                 remarks,
