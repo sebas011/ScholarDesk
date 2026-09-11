@@ -5,7 +5,7 @@ per-scholar Excel-range walk; the database does the counting.
 
 from datetime import date
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Scholar, DepartmentAssignment, Grant
@@ -97,20 +97,28 @@ def years_with_data(db: Session) -> list[int]:
     max_year = current_year + 5
 
     years: set[int] = set()
-    for a in db.query(DepartmentAssignment).all():
-        if a.date_started:
-            end_year = a.date_ended.year if a.date_ended else a.date_started.year
-            start = max(a.date_started.year, min_year)
-            end = min(end_year, max_year)
-            if start <= end:
-                years.update(range(start, end + 1))
-    for g in db.query(Grant).all():
-        if g.start_year:
-            end_year = g.end_year if g.end_year else g.start_year
-            start = max(g.start_year, min_year)
-            end = min(end_year, max_year)
-            if start <= end:
-                years.update(range(start, end + 1))
+    for date_started, date_ended in (
+        db.query(DepartmentAssignment.date_started, DepartmentAssignment.date_ended)
+        .filter(DepartmentAssignment.date_started.isnot(None))
+        .all()
+    ):
+        end_year = date_ended.year if date_ended else date_started.year
+        start = max(date_started.year, min_year)
+        end = min(end_year, max_year)
+        if start <= end:
+            years.update(range(start, end + 1))
+
+    for start_year, end_year in (
+        db.query(Grant.start_year, Grant.end_year)
+        .filter(Grant.start_year.isnot(None))
+        .all()
+    ):
+        final_end = end_year if end_year else start_year
+        start = max(start_year, min_year)
+        end = min(final_end, max_year)
+        if start <= end:
+            years.update(range(start, end + 1))
+
     return sorted(years, reverse=True)
 
 
@@ -122,38 +130,37 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
     With `year` set, only counts assignments active in that year (and
     within that, still the earliest-in-year one per scholar), instead of
     each scholar's all-time first assignment - so switching the year
-    filter reflects who was actually where that year. Both branches run
-    entirely in SQL: the year branch computes MIN(id) per scholar over
-    only the assignments already filtered to that year, via a subquery,
-    rather than loading every assignment into Python to pick manually."""
+    filter reflects who was actually where that year."""
     if year is None:
-        primary_ids = select(func.min(DepartmentAssignment.id)).group_by(
-            DepartmentAssignment.scholar_id
-        )
-        relevant_assignments = (
-            db.query(DepartmentAssignment).filter(DepartmentAssignment.id.in_(primary_ids)).all()
+        relevant_assignment_ids = (
+            select(func.min(DepartmentAssignment.id))
+            .group_by(DepartmentAssignment.scholar_id)
         )
     else:
-        year_filtered = db.query(DepartmentAssignment).filter(
-            *_assignments_active_in_year_filter(year)
-        )
-        primary_ids_in_year = year_filtered.with_entities(
-            func.min(DepartmentAssignment.id)
-        ).group_by(DepartmentAssignment.scholar_id)
-        relevant_assignments = (
-            db.query(DepartmentAssignment)
-            .filter(DepartmentAssignment.id.in_(primary_ids_in_year))
-            .all()
+        relevant_assignment_ids = (
+            select(func.min(DepartmentAssignment.id))
+            .where(*_assignments_active_in_year_filter(year))
+            .group_by(DepartmentAssignment.scholar_id)
         )
 
-    counts: dict[str, int] = {}
-    assigned_scholar_ids = set()
-    for a in relevant_assignments:
-        assigned_scholar_ids.add(a.scholar_id)
-        dept_key = (a.department or "").strip().upper()
-        if dept_key not in KNOWN_DEPARTMENTS:
-            dept_key = OTHER_LABEL
-        counts[dept_key] = counts.get(dept_key, 0) + 1
+    department_key = func.upper(func.trim(DepartmentAssignment.department))
+    department_bucket = case(
+        (department_key.in_(KNOWN_DEPARTMENTS), department_key),
+        else_=OTHER_LABEL,
+    )
+
+    rows = (
+        db.query(
+            department_bucket.label("department"),
+            func.count(DepartmentAssignment.id).label("count"),
+        )
+        .filter(DepartmentAssignment.id.in_(relevant_assignment_ids))
+        .group_by(department_bucket)
+        .all()
+    )
+
+    counts = {department: count for department, count in rows}
+    assigned_count = sum(counts.values())
 
     # Whichever headline total index.html is showing (all-time count, or
     # count active in the selected year) should always equal the sum of
@@ -164,7 +171,7 @@ def department_distribution(db: Session, year: int | None = None) -> dict[str, i
     total_for_bucket = (
         total_scholars(db) if year is None else total_scholars_active_in_year(db, year)
     )
-    unassigned = total_for_bucket - len(assigned_scholar_ids)
+    unassigned = total_for_bucket - assigned_count
     if unassigned > 0:
         counts[OTHER_LABEL] = counts.get(OTHER_LABEL, 0) + unassigned
 

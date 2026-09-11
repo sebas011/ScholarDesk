@@ -3070,3 +3070,33 @@ def test_add_review_rejects_oversized_comments(db_session):
             None,
             "x" * 5_001,
         )
+
+def test_department_distribution_sql_grouping_preserves_primary_assignment_rules(db_session):
+    primary_scholar = Scholar(name="Primary Assignment Distribution Scholar")
+    other_scholar = Scholar(name="Other Department Distribution Scholar")
+    db_session.add_all([primary_scholar, other_scholar])
+    db_session.commit()
+
+    db_session.add_all(
+        [
+            DepartmentAssignment(
+                scholar_id=primary_scholar.id,
+                department="CCS",
+            ),
+            DepartmentAssignment(
+                scholar_id=primary_scholar.id,
+                department="CIT",
+            ),
+            DepartmentAssignment(
+                scholar_id=other_scholar.id,
+                department="History",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    distribution = stats_service.department_distribution(db_session)
+
+    assert distribution["CCS"] == 1
+    assert distribution["Admin Staff"] == 1
+    assert "CIT" not in distribution
