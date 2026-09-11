@@ -1965,9 +1965,8 @@ def test_summarize_payroll_audit_counts_statuses():
         "unresolved_records": 2,
     }
 
-def test_payroll_database_uses_separate_sqlite_file():
-    assert payroll_engine.url.database is not None
-    assert payroll_engine.url.database.endswith("payroll.db")
+def test_payroll_database_uses_separate_test_engine():
+    assert payroll_engine.url.database is None
     assert payroll_engine is not engine
     assert {
     "payroll_workload_assignments",

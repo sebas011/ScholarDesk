@@ -1,10 +1,12 @@
 """Separate SQLite database wiring for payroll data."""
 
+import os
 import sys
 from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 if getattr(sys, "frozen", False):
@@ -12,15 +14,24 @@ if getattr(sys, "frozen", False):
 else:
     app_dir = Path(__file__).parent.parent
 
-PAYROLL_DATABASE_URL = f"sqlite:///{app_dir / 'payroll.db'}"
+PAYROLL_DATABASE_URL = os.environ.get(
+    "PAYROLL_DATABASE_URL",
+    f"sqlite:///{app_dir / 'payroll.db'}",
+)
 SQLITE_LOCK_TIMEOUT_SECONDS = 5.0
 
-payroll_engine = create_engine(
-    PAYROLL_DATABASE_URL,
-    connect_args={
+_payroll_engine_options: dict[str, object] = {
+    "connect_args": {
         "check_same_thread": False,
         "timeout": SQLITE_LOCK_TIMEOUT_SECONDS,
     },
+}
+if PAYROLL_DATABASE_URL == "sqlite://":
+    _payroll_engine_options["poolclass"] = StaticPool
+
+payroll_engine = create_engine(
+    PAYROLL_DATABASE_URL,
+    **_payroll_engine_options,
 )
 
 
