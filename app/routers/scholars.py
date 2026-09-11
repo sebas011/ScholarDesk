@@ -13,7 +13,7 @@ from app.templates_config import templates
 from app.services import scholars as scholar_service
 from app.services import departments as dept_service
 from app.services import grants as grant_service
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, select
 from app.models import DepartmentAssignment, Grant, Scholar, ActivityLog
 from app.core.exceptions import (
     InvalidScholarError,
@@ -614,85 +614,94 @@ columns where no grant exists. Respects dashboard search and year filters."""
             )
         )
 
+    primary_assignment_id = (
+        select(DepartmentAssignment.id)
+        .where(DepartmentAssignment.scholar_id == Scholar.id)
+        .order_by(DepartmentAssignment.id)
+        .limit(1)
+        .correlate(Scholar)
+        .scalar_subquery()
+    )
     query = (
-        db.query(Scholar, Grant)
+        db.query(Scholar, Grant, DepartmentAssignment)
         .outerjoin(Grant, and_(*grant_join_conditions))
+        .outerjoin(
+            DepartmentAssignment,
+            DepartmentAssignment.id == primary_assignment_id,
+        )
         .order_by(Scholar.name, Scholar.id, Grant.id)
     )
-
     if q:
         query = query.filter(Scholar.name.ilike(f"%{q}%"))
 
     if eligible_scholar_filter is not None:
         query = query.filter(eligible_scholar_filter)
 
-    export_rows = query.all()
+    def generate_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        rows_in_chunk = 0
 
-    # Batch-load each exported scholar's primary assignment.
-    scholar_ids = list({scholar.id for scholar, _ in export_rows})
-    assignments_by_scholar: dict[int, DepartmentAssignment] = {}
-    if scholar_ids:
-        assignments = (
-            db.query(DepartmentAssignment)
-            .filter(DepartmentAssignment.scholar_id.in_(scholar_ids))
-            .order_by(DepartmentAssignment.id)
-            .all()
-        )
-        for assignment in assignments:
-            if assignment.scholar_id not in assignments_by_scholar:
-                assignments_by_scholar[assignment.scholar_id] = assignment
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(
-        [
-            "Name",
-            "Rank",
-            "Department",
-            "Age",
-            "Tenure",
-            "Previous Degree",
-            "Program Applied",
-            "Delivering HEI",
-            "Type of Grant",
-            "Date Started",
-            "Date Ended",
-            "Extension",
-            "Status",
-            "Remarks",
-        ]
-    )
-
-    for scholar, grant in export_rows:
-        assignment = assignments_by_scholar.get(scholar.id)
         writer.writerow(
             [
-                _csv_cell(value)
-                for value in (
-                    scholar.name,
-                    assignment.rank if assignment else "",
-                    assignment.department if assignment else "",
-                    scholar.age,
-                    assignment.tenure if assignment else "",
-                    scholar.previous_degree,
-                    grant.program_applied if grant else "",
-                    grant.delivering_hei if grant else "",
-                    grant.type_of_grant if grant else "",
-                    grant.date_started if grant else "",
-                    grant.date_ended if grant else "",
-                    grant.extension if grant else "",
-                    grant.status if grant else "",
-                    grant.remarks if grant else "",
-                )
+                "Name",
+                "Rank",
+                "Department",
+                "Age",
+                "Tenure",
+                "Previous Degree",
+                "Program Applied",
+                "Delivering HEI",
+                "Type of Grant",
+                "Date Started",
+                "Date Ended",
+                "Extension",
+                "Status",
+                "Remarks",
             ]
         )
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
 
-    output.seek(0)
+        for scholar, grant, assignment in query.yield_per(500):
+            writer.writerow(
+                [
+                    _csv_cell(value)
+                    for value in (
+                        scholar.name,
+                        assignment.rank if assignment else "",
+                        assignment.department if assignment else "",
+                        scholar.age,
+                        assignment.tenure if assignment else "",
+                        scholar.previous_degree,
+                        grant.program_applied if grant else "",
+                        grant.delivering_hei if grant else "",
+                        grant.type_of_grant if grant else "",
+                        grant.date_started if grant else "",
+                        grant.date_ended if grant else "",
+                        grant.extension if grant else "",
+                        grant.status if grant else "",
+                        grant.remarks if grant else "",
+                    )
+                ]
+            )
+            rows_in_chunk += 1
+
+            if rows_in_chunk == 500:
+                yield output.getvalue()
+                output.seek(0)
+                output.truncate(0)
+                rows_in_chunk = 0
+
+        if output.tell():
+            yield output.getvalue()
+
     date_str = datetime.now().strftime("%Y-%m-%d")
     filename = f"scholars_export_{date_str}.csv"
 
     return StreamingResponse(
-    iter([output.getvalue()]),
-    media_type="text/csv",
-    headers={"Content-Disposition": f"attachment; filename={filename}"},
-)
+        generate_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

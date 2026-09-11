@@ -51,6 +51,7 @@ from app.services.payroll_store import replace_payroll_audits
 from app.services.payroll_import_service import import_payroll_workbooks
 from app.payroll_database import initialize_payroll_database
 from app.payroll_models import FacultyProfile
+from sqlalchemy.orm import Query
 
 from app.payroll_database import (
     PayrollBase,
@@ -2961,3 +2962,15 @@ def test_dashboard_and_export_reject_invalid_year_filter(client):
 
     assert dashboard_response.status_code == 422
     assert export_response.status_code == 422
+
+def test_dashboard_export_streams_rows_without_query_all(client, monkeypatch):
+    def fail_all(*args, **kwargs):
+        raise AssertionError("Dashboard export must not materialize all query rows.")
+
+    monkeypatch.setattr(Query, "all", fail_all)
+
+    response = client.get("/dashboard/export")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "Name,Rank,Department" in response.text
