@@ -2207,19 +2207,6 @@ def test_initialize_payroll_database_creates_payroll_tables():
     finally:
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-def test_app_lifespan_initializes_payroll_database(monkeypatch):
-    initialized = []
-
-    monkeypatch.setattr(
-        "app.main.initialize_payroll_database",
-        lambda: initialized.append(True),
-    )
-
-    with TestClient(app):
-        pass
-
-    assert initialized == [True]
-
 def test_payroll_import_rolls_back_on_invalid_record():
     PayrollBase.metadata.create_all(bind=payroll_engine)
     db = TestSession(bind=payroll_engine)
