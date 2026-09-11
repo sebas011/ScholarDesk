@@ -1758,12 +1758,6 @@ def test_database_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
 
     assert namespace["app_dir"] == tmp_path
 
-def test_payroll_placeholder_route_returns_page(client):
-    response = client.get("/payroll")
-
-    assert response.status_code == 200
-    assert "Payroll" in response.text
-
 @pytest.mark.anyio
 async def test_lifespan_initializes_and_disposes_database(monkeypatch):
     from app import main
@@ -2253,71 +2247,21 @@ def test_payroll_import_rolls_back_on_invalid_record():
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-def test_payroll_page_renders_import_shell(client):
-    response = client.get("/payroll")
+def test_payroll_routes_are_hidden(client):
+    for method, path in (
+        ("get", "/payroll"),
+        ("post", "/payroll/import"),
+        ("get", "/payroll/results"),
+    ):
+        response = getattr(client, method)(path)
+        assert response.status_code == 404
 
-    assert response.status_code == 200
-    assert "Faculty Workload &amp; Payroll" in response.text
-    assert "Workload workbook" in response.text
-    assert "Payroll projection workbook" in response.text
-    assert "Select both workbooks, then import them for local reconciliation." in response.text
+    launcher_response = client.get("/")
 
-def test_payroll_import_route_rejects_non_xlsx_upload(client):
-    response = client.post(
-        "/payroll/import",
-        files={
-            "workload_file": ("workload.txt", b"not excel", "text/plain"),
-            "projection_file": ("projection.xlsx", b"not excel", "application/octet-stream"),
-        },
-    )
-
-    assert response.status_code == 400
-    assert "must be an .xlsx file" in response.text
-
-def test_payroll_results_page_renders(client):
-    PayrollBase.metadata.create_all(bind=payroll_engine)
-
-    try:
-        response = client.get("/payroll/results")
-    finally:
-        PayrollBase.metadata.drop_all(bind=payroll_engine)
-
-    assert response.status_code == 200
-    assert "Payroll import results" in response.text
-    assert "Workload records: 0" in response.text
-    assert "Payroll records: 0" in response.text
-    assert "Unresolved identities: 0" in response.text
-
-def test_payroll_import_redirects_to_results(client, monkeypatch):
-    monkeypatch.setattr(
-        "app.routers.launcher.import_payroll_workbooks",
-        lambda db, workload_path, projection_path: {
-            "workload_records": 147,
-            "projection_records": 100,
-            "matched_records": 0,
-            "unresolved_records": 100,
-        },
-    )
-
-    response = client.post(
-        "/payroll/import",
-        files={
-            "workload_file": (
-                "workload.xlsx",
-                b"placeholder",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ),
-            "projection_file": (
-                "projection.xlsx",
-                b"placeholder",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ),
-        },
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 303
-    assert response.headers["location"] == "/payroll/results"
+    assert launcher_response.status_code == 200
+    assert "Faculty Workload" not in launcher_response.text
+    assert 'href="/payroll"' not in launcher_response.text
+    assert "Scholar & Grant Tracking" in launcher_response.text
 
 def test_faculty_profile_schema_contains_manual_entry_fields():
     assert FacultyProfile.__tablename__ == "faculty_profiles"

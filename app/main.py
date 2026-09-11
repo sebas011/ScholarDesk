@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 
@@ -37,6 +38,15 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(verify_credentials)],
 )
+PAYROLL_PATH_PREFIX = "/payroll"
+
+@app.middleware("http")
+async def hide_payroll_routes(request: Request, call_next):
+    if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
+        f"{PAYROLL_PATH_PREFIX}/"
+    ):
+        return HTMLResponse(status_code=404)
+    return await call_next(request)
 
 app.include_router(launcher.router)
 app.include_router(scholars.router)
