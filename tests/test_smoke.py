@@ -3004,3 +3004,11 @@ def test_add_grant_rejects_malformed_year(client):
         assert db.query(Grant).filter_by(scholar_id=1).count() == 0
     finally:
         db.close()
+
+def test_dashboard_rejects_invalid_page_bounds(client):
+    assert client.get("/dashboard?page=0").status_code == 422
+    assert client.get("/dashboard?page=10001").status_code == 422
+
+def test_scholar_list_rejects_invalid_offset_bounds(client):
+    assert client.get("/scholars/list?offset=-1").status_code == 422
+    assert client.get("/scholars/list?offset=1000001").status_code == 422

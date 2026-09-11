@@ -147,7 +147,7 @@ def dashboard_page(
     request: Request,
     q: str | None = None,
     year: str | None = None,
-    page: int = 1,
+    page: int = Query(default=1, ge=1, le=10_000),
     per_page: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
@@ -228,7 +228,7 @@ def scholars_list_partial(
     request: Request,
     q: str | None = None,
     year: str | None = None,
-    offset: int = 0,
+    offset: int = Query(default=0, ge=0, le=1_000_000),
     limit: int = Query(default=50, ge=1, le=100),
     selected_id: int | None = None,
     db: Session = Depends(get_db),
