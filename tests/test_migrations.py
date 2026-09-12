@@ -1,7 +1,9 @@
 import sqlite3
 
+import pytest
 from sqlalchemy import create_engine, text
 
+from app.backups import DatabaseBackupError
 from app.database import Base
 from app.migrations import (
     BASELINE_SCHEMA_VERSION,
@@ -98,6 +100,27 @@ def test_baseline_refuses_unrecognized_database_without_creating_backup(tmp_path
         assert "Missing required tables" in str(error)
     else:
         raise AssertionError("Expected an unrecognized database to be refused.")
+    assert not backup_directory.exists()
+
+
+def test_baseline_refuses_when_verified_backup_fails(tmp_path, monkeypatch):
+    database_path = tmp_path / "legacy.db"
+    backup_directory = tmp_path / "backups"
+    _create_legacy_v1_database(database_path)
+
+    def fail_backup(*_args):
+        raise DatabaseBackupError("storage unavailable")
+
+    monkeypatch.setattr("app.migrations.backup_database", fail_backup)
+
+    with pytest.raises(SchemaVersionError, match="Baseline backup failed: storage unavailable"):
+        baseline_legacy_database(database_path, backup_directory)
+
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        assert MIGRATION_TABLE not in existing_table_names(engine)
+    finally:
+        engine.dispose()
     assert not backup_directory.exists()
 
 

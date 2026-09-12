@@ -6,7 +6,7 @@ backup-backed baseline is required before startup can apply a migration.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 
@@ -118,7 +118,7 @@ def baseline_legacy_database(database_path: Path, backup_directory: Path) -> Pat
     if not database_path.is_file():
         raise SchemaVersionError(f"Database not found: {database_path}")
 
-    with sqlite3.connect(database_path, timeout=5) as connection:
+    with closing(sqlite3.connect(database_path, timeout=5)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         try:
             migration_table_exists = connection.execute(
@@ -129,11 +129,10 @@ def baseline_legacy_database(database_path: Path, backup_directory: Path) -> Pat
                 raise SchemaVersionError("Database is already migration-managed; baseline refused.")
 
             _validate_schema_connection(connection, version=BASELINE_SCHEMA_VERSION)
-            backup_directory.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            backup_path = backup_directory / f"{database_path.stem}.pre-baseline-{timestamp}.db"
-            with sqlite3.connect(backup_path) as backup_connection:
-                connection.backup(backup_connection)
+            try:
+                backup_path = backup_database(database_path, backup_directory)
+            except DatabaseBackupError as error:
+                raise SchemaVersionError(f"Baseline backup failed: {error}") from error
 
             connection.execute("BEGIN IMMEDIATE")
             migration_table_exists = connection.execute(
