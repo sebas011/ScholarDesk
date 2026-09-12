@@ -725,6 +725,21 @@ def test_dashboard_page_loads_with_data(client):
     assert 'href="/scholars?scholar_id=1"' not in resp.text
 
 
+def test_dashboard_uses_icon_actions_for_viewing_and_deleting_a_scholar(client):
+    client.post("/scholars", data={"name": "Directory Icon Scholar"})
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert 'aria-label="View profile for Directory Icon Scholar"' in response.text
+    assert 'aria-label="Delete Directory Icon Scholar"' in response.text
+    assert 'hx-delete="/scholars/1"' in response.text
+    assert (
+        'hx-confirm="Delete Directory Icon Scholar and all related records? This cannot be undone."'
+        in response.text
+    )
+
+
 def test_scholar_detail_page_with_grants_renders_without_context_forwarding_crash(client):
     """Regression test: build_detail_context() started returning three
     new keys (notes, activity_logs, grant_reviews) for the GMS/XRM
