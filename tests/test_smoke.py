@@ -465,7 +465,7 @@ def test_browser_form_submission_preserves_fields_after_csrf_check(client):
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/dashboard"
+    assert response.headers["location"] == "/scholars/1"
 
 
 def test_home_starts_empty(client):
@@ -2446,7 +2446,7 @@ def test_new_scholar_form_normal_request_returns_full_page(client):
     assert "<html" in response.text
     assert "Add Scholar" in response.text
 
-def test_create_scholar_page_success_redirects_to_dashboard(client):
+def test_create_scholar_page_success_redirects_to_the_new_profile(client):
     response = client.post(
         "/scholars/new",
         data={
@@ -2463,7 +2463,7 @@ def test_create_scholar_page_success_redirects_to_dashboard(client):
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/dashboard"
+    assert response.headers["location"] == "/scholars/1"
 
 def test_create_scholar_page_validation_error_rerenders_form(client):
     response = client.post(
