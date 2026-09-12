@@ -815,6 +815,29 @@ def test_auth_accepts_a_second_local_administrator(tmp_path, monkeypatch):
     ) == "second-admin"
 
 
+def test_auth_lists_and_removes_a_local_administrator(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("admin", "correct horse battery staple")
+    auth.set_user_password("departing-admin", "another correct horse battery staple")
+
+    assert auth.list_usernames() == ["admin", "departing-admin"]
+    auth.remove_user("departing-admin")
+
+    assert auth.list_usernames() == ["admin"]
+    with pytest.raises(ValueError, match="was not found"):
+        auth.remove_user("departing-admin")
+
+
+def test_auth_refuses_to_remove_final_local_administrator(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("admin", "correct horse battery staple")
+
+    with pytest.raises(ValueError, match="final administrator"):
+        auth.remove_user("admin")
+
+
 @pytest.mark.parametrize(
     ("username", "password"),
     [

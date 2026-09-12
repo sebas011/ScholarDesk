@@ -7,7 +7,7 @@ import getpass
 from pathlib import Path
 import sqlite3
 
-from app.core.auth import DEFAULT_USERNAME, set_user_password
+from app.core.auth import DEFAULT_USERNAME, list_usernames, remove_user, set_user_password
 from app.backups import DatabaseBackupError, backup_database, run_backup_restore_drill
 from app.database import app_dir
 from app.migrations import SchemaVersionError, baseline_legacy_database
@@ -26,6 +26,28 @@ def _set_password() -> None:
     except ValueError as error:
         raise SystemExit(str(error)) from error
     print("User account saved securely. Restart ScholarDesk if it is running.")
+
+
+def _list_users() -> None:
+    """Show local administrator names without exposing authentication material."""
+    usernames = list_usernames()
+    if not usernames:
+        raise SystemExit("No administrator accounts are configured.")
+    print("Local administrator accounts:")
+    for username in usernames:
+        print(f"- {username}")
+
+
+def _remove_user(username: str) -> None:
+    """Require an explicit local confirmation before revoking an account."""
+    confirmation = input(f"Type {username} to permanently remove this administrator: ")
+    if confirmation != username:
+        raise SystemExit("Account removal cancelled; no accounts were changed.")
+    try:
+        remove_user(username)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    print(f"Administrator '{username}' was removed. Restart ScholarDesk if it is running.")
 
 
 def _baseline_database(database_path: Path) -> None:
@@ -61,21 +83,31 @@ def _verify_backup_restore(database_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="ScholarDesk local administrator utility.")
-    database_action = parser.add_mutually_exclusive_group()
-    database_action.add_argument(
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument(
         "--baseline-database",
         action="store_true",
         help="validate and baseline an existing grants.db after creating a backup",
     )
-    database_action.add_argument(
+    action.add_argument(
         "--backup-database",
         action="store_true",
         help="create a consistent SQLite backup without modifying the database",
     )
-    database_action.add_argument(
+    action.add_argument(
         "--verify-backup-restore",
         action="store_true",
         help="create a backup and verify it restores into a disposable copy",
+    )
+    action.add_argument(
+        "--list-users",
+        action="store_true",
+        help="list local administrator usernames without revealing passwords",
+    )
+    action.add_argument(
+        "--remove-user",
+        metavar="USERNAME",
+        help="permanently revoke one local administrator after confirmation",
     )
     parser.add_argument(
         "--database",
@@ -92,6 +124,12 @@ def main() -> None:
         return
     if arguments.verify_backup_restore:
         _verify_backup_restore(arguments.database)
+        return
+    if arguments.list_users:
+        _list_users()
+        return
+    if arguments.remove_user:
+        _remove_user(arguments.remove_user)
         return
     _set_password()
 

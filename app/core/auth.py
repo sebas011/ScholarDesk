@@ -244,6 +244,24 @@ def set_user_password(username: str, password: str) -> None:
     _write_users(users)
 
 
+def list_usernames() -> list[str]:
+    """Return local administrator usernames without exposing password hashes."""
+    return sorted(load_users())
+
+
+def remove_user(username: str) -> None:
+    """Revoke one local administrator while preserving a recovery account."""
+    username = _validate_username(username)
+    users = load_users()
+    if username not in users:
+        raise ValueError(f"User '{username}' was not found.")
+    if len(users) == 1:
+        raise ValueError("Cannot remove the final administrator account.")
+
+    del users[username]
+    _write_users(users)
+
+
 def _load_auth_record() -> tuple[str, str, bool]:
     values = _load_credential_values()
     password_hash = values.get("password_hash", "")

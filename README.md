@@ -123,6 +123,21 @@ tests/
 ScholarDesk stores its SQLite database in `grants.db`, next to the executable. The
 local credential files `auth.txt` and `users.json` are stored in the same directory.
 
+### Local administrator accounts
+
+Use the administrator utility to add or reset an account. After the first successful
+login, a valid legacy `auth.txt` account is migrated to `users.json`, which supports
+multiple local administrators.
+
+```powershell
+.\ScholarDeskAdmin.exe
+.\ScholarDeskAdmin.exe --list-users
+.\ScholarDeskAdmin.exe --remove-user departing-admin
+```
+
+Account removal asks you to type the username again and refuses to remove the final
+administrator. Keep at least one separately stored recovery account.
+
 Stop ScholarDesk before copying or restoring the database.
 
 ### Backup
