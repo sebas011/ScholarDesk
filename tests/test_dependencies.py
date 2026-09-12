@@ -33,6 +33,13 @@ def test_ci_builds_and_preserves_the_windows_portable_release_artifact():
     assert "python -m venv .venv" in workflow
     assert "cmd /c build.bat" in workflow
     assert "Smoke test packaged release" in workflow
+    assert "ScholarDeskAdmin.exe\") --help" in workflow
+    assert "--list-users" in workflow
+    assert "--remove-user" in workflow
+    assert (
+        "Packaged ScholarDeskAdmin help or account-management commands are unavailable."
+        in workflow
+    )
     assert "SCHOLARDESK_HEADLESS = \"1\"" in workflow
     assert "http://127.0.0.1:8000/health" in workflow
     assert "grants.db in the clean release directory" in workflow
