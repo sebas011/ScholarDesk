@@ -356,16 +356,16 @@ def ensure_schema_version(
         return version
 
     if not database_was_empty:
-        # Preserve unversioned legacy databases without baselining or migrating
-        # them, but do not start a server against an incompatible schema that
-        # will fail later during normal user requests.
+        # Recognize the legacy schema without altering it, then fail closed.
+        # A current application cannot safely serve an older unversioned
+        # database because later migrations may add columns and indexes used
+        # by normal write paths.
         with closing(engine.raw_connection()) as connection:
             _validate_schema_connection(connection, version=BASELINE_SCHEMA_VERSION)
-        logger.warning(
-            "Database has no schema version record; preserving the validated legacy schema "
-            "without automatic migration."
+        raise SchemaVersionError(
+            "Database has no schema version record. Run ScholarDeskAdmin "
+            "--baseline-database before starting ScholarDesk."
         )
-        return None
 
     with engine.begin() as connection:
         connection.execute(

@@ -51,12 +51,13 @@ def test_incompatible_unversioned_database_refuses_startup_without_baselining(tm
         engine.dispose()
 
 
-def test_valid_unversioned_legacy_database_is_preserved_without_baselining(tmp_path):
+def test_valid_unversioned_legacy_database_requires_explicit_baseline(tmp_path):
     database_path = tmp_path / "legacy.db"
     _create_legacy_v1_database(database_path)
     engine = create_engine(f"sqlite:///{database_path}")
     try:
-        assert ensure_schema_version(engine, database_was_empty=False) is None
+        with pytest.raises(SchemaVersionError, match="--baseline-database"):
+            ensure_schema_version(engine, database_was_empty=False)
         assert MIGRATION_TABLE not in existing_table_names(engine)
     finally:
         engine.dispose()

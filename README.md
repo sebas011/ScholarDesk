@@ -102,8 +102,8 @@ pytest
 ## Known gaps
 
 - Fresh databases record the current schema version on startup. Existing databases are never
-  silently baselined; unversioned databases must match the recognized legacy schema or startup
-  fails safely. Use the administrator command below before startup applies a pending migration.
+  silently baselined; every unversioned database fails safely until the administrator command
+  below validates, backs up, and baselines it.
 - HTTP Basic Auth and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
 
 ---
