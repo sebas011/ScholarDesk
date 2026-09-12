@@ -3884,6 +3884,7 @@ def test_content_security_policy_authorizes_only_the_response_nonce(client):
     assert f"script-src 'self' 'nonce-{nonce}'" in policy
     assert "object-src 'none'" in policy
     assert "frame-ancestors 'none'" in policy
+    assert '<meta name="htmx-config" content=\'{"allowEval":false}\'>' in response.text
     assert "onclick=" not in client.get("/scholars").text
     assert "onchange=" not in client.get("/home").text
 
