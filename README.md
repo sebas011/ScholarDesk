@@ -58,6 +58,12 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+To build the Windows executables, install the additional Windows-only build tools:
+
+```powershell
+pip install -r requirements.windows.txt
+```
+
 ---
 
 ## Running
