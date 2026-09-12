@@ -1,6 +1,13 @@
 from pathlib import Path
 
 
+def test_vendor_assets_use_deterministic_checkout_line_endings():
+    attributes = Path(".gitattributes").read_text(encoding="utf-8")
+
+    assert "app/static/vendor/tailwindcss-3.4.17.js -text" in attributes
+    assert "app/static/vendor/htmx-1.9.12.min.js -text" in attributes
+
+
 def test_requirements_use_supported_starlette_testclient_dependency():
     requirements = Path("requirements.txt").read_text(encoding="utf-8").splitlines()
 

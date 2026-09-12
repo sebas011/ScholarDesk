@@ -1,0 +1,4 @@
+# Vendor assets are verified by SHA-256 during the release test. Preserve their
+# exact bytes instead of allowing Git's text line-ending conversion to alter them.
+app/static/vendor/tailwindcss-3.4.17.js -text
+app/static/vendor/htmx-1.9.12.min.js -text
