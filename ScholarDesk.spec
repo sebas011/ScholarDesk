@@ -9,6 +9,7 @@ root = Path(SPECPATH).resolve()
 # Data files to bundle: (source_path, dest_path_in_bundle)
 datas = [
     (str(root / "app" / "templates"), "app/templates"),
+    (str(root / "app" / "static"), "app/static"),
 ]
 
 # If you have a grants.db or other runtime data you want seeded,

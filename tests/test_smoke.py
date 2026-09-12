@@ -6,6 +6,7 @@ override) so tests never touch grants.db.
 Run with: pytest
 """
 import csv
+import hashlib
 import io
 from pathlib import Path
 import run as application_runner
@@ -147,6 +148,32 @@ def client():
 def test_api_documentation_is_not_exposed(client):
     for path in ("/docs", "/openapi.json", "/redoc"):
         assert client.get(path).status_code == 404
+
+
+def test_browser_assets_are_bundled_and_served_locally(client):
+    template = Path("app/templates/base.html").read_text(encoding="utf-8")
+
+    assert "cdn.tailwindcss.com" not in template
+    assert "unpkg.com" not in template
+    assert "fonts.googleapis.com" not in template
+    assert client.get("/static/vendor/tailwindcss-3.4.17.js").status_code == 200
+    assert client.get("/static/vendor/htmx-1.9.12.min.js").status_code == 200
+
+
+def test_bundled_browser_assets_match_recorded_hashes():
+    expected_hashes = {
+        "tailwindcss-3.4.17.js": (
+            "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15"
+        ),
+        "htmx-1.9.12.min.js": (
+            "449317ade7881e949510db614991e195c3a099c4c791c24dacec55f9f4a2a452"
+        ),
+    }
+    asset_directory = Path("app/static/vendor")
+
+    for filename, expected_hash in expected_hashes.items():
+        actual_hash = hashlib.sha256((asset_directory / filename).read_bytes()).hexdigest()
+        assert actual_hash == expected_hash
 
 
 @pytest.fixture
@@ -3198,6 +3225,7 @@ def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
     assert 'str(root / "app" / "admin.py")' in contents
     assert 'name="ScholarDeskAdmin"' in contents
     assert "console=True" in contents
+    assert '(str(root / "app" / "static"), "app/static")' in contents
 
 def test_security_headers_protect_html_and_csv_responses(client):
     for response in (

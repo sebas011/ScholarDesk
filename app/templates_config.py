@@ -13,3 +13,4 @@ else:
     base_dir = Path(__file__).parent
 
 templates = Jinja2Templates(directory=str(base_dir / "templates"))
+STATIC_DIRECTORY = base_dir / "static"

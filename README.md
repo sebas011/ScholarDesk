@@ -70,6 +70,7 @@ build.bat
 
 Produces `dist\ScholarDesk.exe` and `dist\ScholarDeskAdmin.exe`. Keep both files in the same private release folder. On first use, run `ScholarDeskAdmin.exe` to set the local username and password, then start `ScholarDesk.exe`; the admin tool stores only a password hash in `auth.txt`.
 Close the dedicated ScholarDesk window to stop the background server completely. The packaged app uses a temporary Edge profile and does not leave the server listening after the window closes. `grants.db` is created next to the `.exe` the first time you run it, and stays there across runs.
+The Grant Tracker browser assets are bundled into the executable, so normal use does not require Internet access.
 
 **From source:**
 

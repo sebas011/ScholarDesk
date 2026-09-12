@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 from urllib.parse import urlsplit
@@ -10,7 +11,7 @@ from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMidd
 from app.database import Base, engine
 from app.migrations import ensure_schema_version, existing_table_names
 from app.routers import scholars, records, launcher
-from app.templates_config import templates
+from app.templates_config import STATIC_DIRECTORY, templates
 
 from fastapi import Depends
 
@@ -44,6 +45,7 @@ app = FastAPI(
     openapi_url=None,
 )
 
+app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 app.include_router(scholars.router)
 app.include_router(records.router)
 app.include_router(launcher.router)
