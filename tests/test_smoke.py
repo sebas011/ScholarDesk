@@ -259,6 +259,20 @@ def test_mutation_without_csrf_token_is_rejected():
     assert response.status_code == 403
 
 
+def test_htmx_csrf_rejection_returns_safe_error_partial(client):
+    client.headers.pop("X-CSRF-Token")
+
+    response = client.post(
+        "/scholars",
+        data={"name": "Blocked Scholar"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 403
+    assert "Your form has expired. Refresh the page and try again." in response.text
+    assert 'class="alert alert-error"' in response.text
+
+
 def test_new_scholar_form_contains_csrf_token(client):
     response = client.get("/scholars/new")
     csrf_token = client.cookies["scholardesk_csrf"]

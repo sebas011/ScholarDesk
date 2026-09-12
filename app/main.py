@@ -120,7 +120,11 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
             not isinstance(submitted_token, str)
             or not secrets.compare_digest(submitted_token, csrf_token)
         ):
-            response = HTMLResponse(status_code=403)
+            response = _render_error(
+                request,
+                "Your form has expired. Refresh the page and try again.",
+                status_code=403,
+            )
         else:
             response = await call_next(request)
     else:
