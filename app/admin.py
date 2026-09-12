@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 
 from app.core.auth import DEFAULT_USERNAME, set_hashed_credentials
+from app.backups import DatabaseBackupError, backup_database
 from app.database import app_dir
 from app.migrations import SchemaVersionError, baseline_legacy_database
 
@@ -40,12 +41,27 @@ def _baseline_database(database_path: Path) -> None:
     print(f"Database marked as schema version 1. Backup created: {backup_path}")
 
 
+def _backup_database(database_path: Path) -> None:
+    """Write a consistent local backup without changing the source database."""
+    try:
+        backup_path = backup_database(database_path, app_dir / "backups")
+    except DatabaseBackupError as error:
+        raise SystemExit(f"Backup failed: {error}") from error
+    print(f"Backup created: {backup_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ScholarDesk local administrator utility.")
-    parser.add_argument(
+    database_action = parser.add_mutually_exclusive_group()
+    database_action.add_argument(
         "--baseline-database",
         action="store_true",
         help="validate and baseline an existing grants.db after creating a backup",
+    )
+    database_action.add_argument(
+        "--backup-database",
+        action="store_true",
+        help="create a consistent SQLite backup without modifying the database",
     )
     parser.add_argument(
         "--database",
@@ -56,6 +72,9 @@ def main() -> None:
     arguments = parser.parse_args()
     if arguments.baseline_database:
         _baseline_database(arguments.database)
+        return
+    if arguments.backup_database:
+        _backup_database(arguments.database)
         return
     _set_password()
 

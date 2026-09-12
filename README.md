@@ -125,13 +125,15 @@ Stop ScholarDesk before copying or restoring the database.
 
 ### Backup
 
-Create a timestamped backup from the application directory:
+Create a timestamped, SQLite-consistent backup from the release folder:
 
 ```powershell
-New-Item -ItemType Directory -Force backups
-Copy-Item grants.db "backups\grants-$(Get-Date -Format yyyyMMdd-HHmmss).db"
+.\ScholarDeskAdmin.exe --backup-database
 ```
 
+This uses SQLite's backup API, so it captures committed data correctly even when
+`grants.db` is in WAL mode. It does not modify the live database and writes the
+backup to `backups\`. From source, run `python -m app.admin --backup-database`.
 Keep backups outside the release folder when possible. Never commit `auth.txt`,
 `grants.db`, or backup files to Git.
 
