@@ -138,6 +138,13 @@ backup to `backups\`. From source, run `python -m app.admin --backup-database`.
 Keep backups outside the release folder when possible. Never commit `auth.txt`,
 `grants.db`, or backup files to Git.
 
+### Health check
+
+`GET /health` requires the same local credentials as the rest of ScholarDesk.
+It returns `{"status":"ok"}` only after a lightweight database read succeeds;
+otherwise it returns `503` with `{"status":"unavailable"}` and records the
+underlying failure in the application log.
+
 ### Baseline an existing database
 
 After upgrading to the versioned-schema release, stop ScholarDesk and run this

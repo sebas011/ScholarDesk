@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from urllib.parse import urlsplit
 import secrets
 from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
@@ -49,6 +50,18 @@ app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 app.include_router(scholars.router)
 app.include_router(records.router)
 app.include_router(launcher.router)
+
+
+@app.get("/health", dependencies=[Depends(verify_credentials)])
+def health_check() -> JSONResponse:
+    """Report whether this process can read the configured SQLite database."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logger.exception("Health check database probe failed.")
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return JSONResponse(content={"status": "ok"})
 
 PAYROLL_PATH_PREFIX = "/payroll"
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})

@@ -30,8 +30,9 @@ from app.core.exceptions import InvalidScholarError, ScholarNotFoundError
 from app.services import departments as dept_service
 from app.services import notes as note_service
 from app.services import stats as stats_service
+import app.main as main
 from app.main import app
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 from app.database import Base, get_db
 from sqlalchemy.exc import OperationalError
 from starlette.requests import Request
@@ -148,6 +149,30 @@ def client():
 def test_api_documentation_is_not_exposed(client):
     for path in ("/docs", "/openapi.json", "/redoc"):
         assert client.get(path).status_code == 404
+
+
+def test_health_check_reports_database_availability(client, monkeypatch):
+    health_engine = MagicMock()
+    monkeypatch.setattr(main, "engine", health_engine)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    health_engine.connect.return_value.__enter__.return_value.execute.assert_called_once()
+
+
+def test_health_check_returns_503_when_database_probe_fails(client, monkeypatch):
+    health_engine = MagicMock()
+    health_engine.connect.side_effect = OperationalError(
+        "SELECT 1", {}, Exception("database unavailable")
+    )
+    monkeypatch.setattr(main, "engine", health_engine)
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
 
 
 def test_browser_assets_are_bundled_and_served_locally(client):
