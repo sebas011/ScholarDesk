@@ -238,15 +238,9 @@ def create_scholar(
     try:
         db.add(scholar)
         db.flush()  # populate scholar.id without committing yet - caller controls the transaction
-        logger.info(
-            "Created scholar '%s'.",
-            scholar.name,
-        )
+        logger.info("Created scholar id=%s.", scholar.id)
     except Exception:
-        logger.exception(
-            "Unexpected error while creating scholar '%s'.",
-            name,
-        )
+        logger.exception("Unexpected error while creating scholar.")
         raise
     return scholar
 

@@ -347,6 +347,19 @@ def test_create_scholar_with_assignment(client):
     assert "CCS" in resp.text
 
 
+def test_create_scholar_log_uses_identifier_not_name(db_session):
+    with patch("app.services.scholars.logger.info") as info:
+        scholar = scholar_service.create_scholar(
+            db_session,
+            name="Sensitive Scholar Name",
+            age=None,
+            previous_degree=None,
+            missing_requirements=False,
+        )
+
+    info.assert_called_once_with("Created scholar id=%s.", scholar.id)
+
+
 def test_blank_name_rejected_with_html_error_not_json(client):
     resp = client.post("/scholars", data={"name": "", "department": "CCS"})
     assert resp.status_code == 422
