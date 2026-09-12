@@ -39,6 +39,9 @@ app = FastAPI(
     title="Grant Tracking System",
     lifespan=lifespan,
     dependencies=[Depends(verify_credentials)],
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.include_router(scholars.router)

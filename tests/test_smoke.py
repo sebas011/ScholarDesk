@@ -131,7 +131,7 @@ def client():
     app.dependency_overrides[get_db] = override_get_db
 
     test_client = TestClient(app)
-    bootstrap_response = test_client.get("/docs")
+    bootstrap_response = test_client.get("/home")
     csrf_token = test_client.cookies.get("scholardesk_csrf")
 
     assert bootstrap_response.status_code == 200
@@ -143,13 +143,19 @@ def client():
     finally:
         test_client.close()
 
+
+def test_api_documentation_is_not_exposed(client):
+    for path in ("/docs", "/openapi.json", "/redoc"):
+        assert client.get(path).status_code == 404
+
+
 @pytest.fixture
 def non_raising_client():
     app.dependency_overrides[verify_credentials] = override_verify_credentials
     app.dependency_overrides[get_db] = override_get_db
 
     test_client = TestClient(app, raise_server_exceptions=False)
-    bootstrap_response = test_client.get("/docs")
+    bootstrap_response = test_client.get("/home")
     csrf_token = test_client.cookies.get("scholardesk_csrf")
 
     assert bootstrap_response.status_code == 200
