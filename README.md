@@ -155,9 +155,9 @@ It never overwrites or modifies the live `grants.db`. From source, run
 ### Health check
 
 `GET /health` requires the same local credentials as the rest of ScholarDesk.
-It returns `{"status":"ok"}` only after a lightweight database read succeeds;
-otherwise it returns `503` with `{"status":"unavailable"}` and records the
-underlying failure in the application log.
+It returns `{"status":"ok"}` only after a lightweight read from the core
+`scholars` table succeeds; otherwise it returns `503` with
+`{"status":"unavailable"}` and records the underlying failure in the application log.
 
 ### Baseline an existing database
 

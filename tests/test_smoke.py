@@ -171,7 +171,9 @@ def test_health_check_reports_database_availability(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-    health_engine.connect.return_value.__enter__.return_value.execute.assert_called_once()
+    execute = health_engine.connect.return_value.__enter__.return_value.execute
+    execute.assert_called_once()
+    assert str(execute.call_args.args[0]) == "SELECT 1 FROM scholars LIMIT 1"
 
 
 def test_health_check_returns_503_when_database_probe_fails(client, monkeypatch):
@@ -182,6 +184,19 @@ def test_health_check_returns_503_when_database_probe_fails(client, monkeypatch)
     monkeypatch.setattr(main, "engine", health_engine)
 
     response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
+
+
+def test_health_check_returns_503_when_core_table_is_missing(client, monkeypatch, tmp_path):
+    health_engine = create_engine(f"sqlite:///{tmp_path / 'empty.db'}")
+    monkeypatch.setattr(main, "engine", health_engine)
+
+    try:
+        response = client.get("/health")
+    finally:
+        health_engine.dispose()
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable"}

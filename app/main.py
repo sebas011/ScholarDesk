@@ -59,10 +59,10 @@ app.include_router(launcher.router)
 
 @app.get("/health", dependencies=[Depends(verify_credentials)])
 def health_check() -> JSONResponse:
-    """Report whether this process can read the configured SQLite database."""
+    """Report whether this process can read Grant Tracker's core table."""
     try:
         with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+            connection.execute(text("SELECT 1 FROM scholars LIMIT 1"))
     except SQLAlchemyError:
         logger.exception("Health check database probe failed.")
         return JSONResponse(status_code=503, content={"status": "unavailable"})
