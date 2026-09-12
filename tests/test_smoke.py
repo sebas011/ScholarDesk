@@ -1923,9 +1923,13 @@ async def test_lifespan_initializes_and_disposes_database(monkeypatch):
     monkeypatch.setattr(main.Base.metadata, "create_all", create_all)
     monkeypatch.setattr(main.engine, "dispose", dispose)
     monkeypatch.setattr(main.logger, "info", info)
+    monkeypatch.setattr(main, "existing_table_names", lambda _: set())
+    ensure_schema_version = Mock()
+    monkeypatch.setattr(main, "ensure_schema_version", ensure_schema_version)
 
     async with main.lifespan(main.app):
         create_all.assert_called_once_with(bind=main.engine)
+        ensure_schema_version.assert_called_once()
         info.assert_any_call("Grant Tracker started successfully.")
 
     dispose.assert_called_once_with()

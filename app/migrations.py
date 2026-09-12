@@ -1,8 +1,7 @@
-"""Minimal, fail-safe schema-version tracking for the SQLite database.
+"""Fail-safe schema-version tracking and migrations for the SQLite database.
 
-Version records are created only for databases that contained no application
-tables before startup. Existing unversioned databases are intentionally not
-modified: an explicit, backup-backed migration must baseline them later.
+Existing unversioned databases are intentionally not modified: an explicit,
+backup-backed baseline is required before startup can apply a migration.
 """
 
 from __future__ import annotations
@@ -13,21 +12,27 @@ import sqlite3
 
 from sqlalchemy import Engine, inspect, text
 
+from app.backups import DatabaseBackupError, backup_database
 from app.core.logging import logger
 
-CURRENT_SCHEMA_VERSION = 1
+BASELINE_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 3
 MIGRATION_TABLE = "schema_migrations"
 ForeignKeyDefinition = tuple[str, str, str, str]
+ACTIVITY_LOG_INDEX_SQL = (
+    "CREATE INDEX IF NOT EXISTS ix_activity_logs_scholar_id "
+    "ON activity_logs (scholar_id)"
+)
 
 
 class SchemaVersionError(RuntimeError):
     """Raised when a database cannot safely run the installed application."""
 
 
-def _expected_schema() -> tuple[
+def _expected_schema(version: int = CURRENT_SCHEMA_VERSION) -> tuple[
     dict[str, set[str]], dict[str, set[str]], set[ForeignKeyDefinition]
 ]:
-    """Derive the required v1 table, index, and foreign-key names from the ORM."""
+    """Derive required schema objects for a known schema version from the ORM."""
     from app import models  # noqa: F401
     from app.database import Base
 
@@ -46,11 +51,16 @@ def _expected_schema() -> tuple[
                     foreign_key.column.name,
                 )
             )
+
+    if version < 2:
+        indexes_by_table["activity_logs"].discard("ix_activity_logs_scholar_id")
     return columns_by_table, indexes_by_table, foreign_keys
 
 
-def _validate_schema_connection(connection: sqlite3.Connection) -> None:
-    expected_columns, expected_indexes, expected_foreign_keys = _expected_schema()
+def _validate_schema_connection(
+    connection: sqlite3.Connection, *, version: int = CURRENT_SCHEMA_VERSION
+) -> None:
+    expected_columns, expected_indexes, expected_foreign_keys = _expected_schema(version)
     actual_tables = {
         row[0]
         for row in connection.execute(
@@ -118,7 +128,7 @@ def baseline_legacy_database(database_path: Path, backup_directory: Path) -> Pat
             if migration_table_exists:
                 raise SchemaVersionError("Database is already migration-managed; baseline refused.")
 
-            _validate_schema_connection(connection)
+            _validate_schema_connection(connection, version=BASELINE_SCHEMA_VERSION)
             backup_directory.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             backup_path = backup_directory / f"{database_path.stem}.pre-baseline-{timestamp}.db"
@@ -132,7 +142,7 @@ def baseline_legacy_database(database_path: Path, backup_directory: Path) -> Pat
             ).fetchone()
             if migration_table_exists:
                 raise SchemaVersionError("Database became migration-managed; baseline refused.")
-            _validate_schema_connection(connection)
+            _validate_schema_connection(connection, version=BASELINE_SCHEMA_VERSION)
             connection.execute(
                 "CREATE TABLE schema_migrations ("
                 "version INTEGER NOT NULL PRIMARY KEY, "
@@ -140,7 +150,7 @@ def baseline_legacy_database(database_path: Path, backup_directory: Path) -> Pat
             )
             connection.execute(
                 "INSERT INTO schema_migrations (version) VALUES (?)",
-                (CURRENT_SCHEMA_VERSION,),
+                (BASELINE_SCHEMA_VERSION,),
             )
             connection.commit()
         except Exception:
@@ -165,8 +175,60 @@ def get_schema_version(engine: Engine) -> int | None:
         ).scalar_one()
 
 
-def ensure_schema_version(engine: Engine, *, database_was_empty: bool) -> int | None:
-    """Create version 1 only for a new database and reject future versions."""
+def _database_path(engine: Engine) -> Path:
+    """Return the file path required for a backup-backed SQLite migration."""
+    database = engine.url.database
+    if engine.dialect.name != "sqlite" or database in (None, "", ":memory:"):
+        raise SchemaVersionError("Schema migrations require a file-backed SQLite database.")
+    return Path(database)
+
+
+def _apply_pending_migrations(engine: Engine, version: int, backup_directory: Path) -> int:
+    """Back up and atomically apply every migration after ``version``."""
+    database_path = _database_path(engine)
+    try:
+        backup_path = backup_database(database_path, backup_directory)
+    except DatabaseBackupError as error:
+        raise SchemaVersionError(f"Migration backup failed: {error}") from error
+
+    with engine.begin() as connection:
+        current_version = connection.execute(
+            text(f"SELECT MAX(version) FROM {MIGRATION_TABLE}")
+        ).scalar_one()
+        if current_version != version:
+            raise SchemaVersionError("Database schema version changed during migration.")
+
+        for target_version in range(version + 1, CURRENT_SCHEMA_VERSION + 1):
+            if target_version in (2, 3):
+                # Version 3 repairs a database incorrectly marked as version 2
+                # before the activity-log index was present. The statement is
+                # idempotent, so normal version-2 upgrades remain safe.
+                connection.execute(text(ACTIVITY_LOG_INDEX_SQL))
+            else:
+                raise SchemaVersionError(
+                    f"No migration is registered for version {target_version}."
+                )
+            connection.execute(
+                text(f"INSERT INTO {MIGRATION_TABLE} (version) VALUES (:version)"),
+                {"version": target_version},
+            )
+
+    logger.info(
+        "Migrated database schema from version %s to %s; backup created at %s.",
+        version,
+        CURRENT_SCHEMA_VERSION,
+        backup_path,
+    )
+    return CURRENT_SCHEMA_VERSION
+
+
+def ensure_schema_version(
+    engine: Engine,
+    *,
+    database_was_empty: bool,
+    backup_directory: Path | None = None,
+) -> int | None:
+    """Initialize new databases or safely upgrade recognized schema versions."""
     version = get_schema_version(engine)
     if version is not None:
         if version > CURRENT_SCHEMA_VERSION:
@@ -175,10 +237,9 @@ def ensure_schema_version(engine: Engine, *, database_was_empty: bool) -> int | 
                 f"(supports {CURRENT_SCHEMA_VERSION})."
             )
         if version < CURRENT_SCHEMA_VERSION:
-            raise SchemaVersionError(
-                f"Database schema version {version} requires migration to "
-                f"{CURRENT_SCHEMA_VERSION} before startup."
-            )
+            if backup_directory is None:
+                raise SchemaVersionError("A backup directory is required before schema migration.")
+            return _apply_pending_migrations(engine, version, backup_directory)
         return version
 
     if not database_was_empty:

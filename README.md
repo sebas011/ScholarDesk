@@ -95,9 +95,9 @@ pytest
 
 ## Known gaps
 
-- Fresh databases record schema version `1` on startup. Existing databases are never
-  silently baselined; use the administrator command below before applying a future
-  schema migration.
+- Fresh databases record schema version `3` on startup. Existing databases are never
+  silently baselined; use the administrator command below before startup applies a
+  pending migration.
 - HTTP Basic Auth and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
 
 ---
@@ -158,7 +158,9 @@ once from the release folder:
 Type `BASELINE` only after confirming the app is closed. The command validates
 the required tables, columns, indexes, foreign keys, and SQLite integrity; it
 then saves a timestamped copy in `backups\` before recording schema version `1`.
-If validation fails, it does not create a backup or change the database.
+On the next ScholarDesk startup, the application creates a second backup and applies
+any pending migrations before opening the database. If validation or migration fails,
+the database is not changed after the failed step and the backup remains available.
 
 ### Restore
 

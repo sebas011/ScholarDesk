@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from urllib.parse import urlsplit
 import secrets
 from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
-from app.database import Base, engine
+from app.database import Base, app_dir, engine
 from app.migrations import ensure_schema_version, existing_table_names
 from app.routers import scholars, records, launcher
 from app.templates_config import STATIC_DIRECTORY, templates
@@ -28,8 +28,13 @@ configure_logging()
 async def lifespan(_: FastAPI):
     """Initialize the portable app database and release connections on shutdown."""
     database_was_empty = not existing_table_names(engine)
-    Base.metadata.create_all(bind=engine)
-    ensure_schema_version(engine, database_was_empty=database_was_empty)
+    if database_was_empty:
+        Base.metadata.create_all(bind=engine)
+    ensure_schema_version(
+        engine,
+        database_was_empty=database_was_empty,
+        backup_directory=app_dir / "backups",
+    )
     logger.info("Grant Tracker started successfully.")
     try:
         yield
