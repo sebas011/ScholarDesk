@@ -19,6 +19,8 @@ EXTENSION_MAX_LENGTH = 200
 REMARKS_MAX_LENGTH = 5_000
 REVIEWER_MAX_LENGTH = 200
 REVIEW_COMMENTS_MAX_LENGTH = 5_000
+GRANT_YEAR_MIN = 1900
+GRANT_YEAR_MAX = 9999
 
 def _validate_field_lengths(
     program_applied: str,
@@ -51,6 +53,14 @@ def _validate_field_lengths(
 
 
 def _validate_year_range(start_year: int | None, end_year: int | None) -> None:
+    if start_year is not None and not (GRANT_YEAR_MIN <= start_year <= GRANT_YEAR_MAX):
+        raise ValueError(
+            f"Start year must be a four-digit year between {GRANT_YEAR_MIN} and {GRANT_YEAR_MAX}."
+        )
+    if end_year is not None and not (GRANT_YEAR_MIN <= end_year <= GRANT_YEAR_MAX):
+        raise ValueError(
+            f"End year must be a four-digit year between {GRANT_YEAR_MIN} and {GRANT_YEAR_MAX}."
+        )
     if start_year is not None and end_year is not None and end_year < start_year:
         raise ValueError("Grant end year cannot be before start year.")
 

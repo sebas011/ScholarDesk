@@ -3102,6 +3102,36 @@ def test_create_grant_rejects_end_year_before_start_year(db_session):
             None,
         )
 
+
+@pytest.mark.parametrize(
+    ("start_year", "end_year", "message"),
+    [
+        (1899, None, "Start year must be a four-digit year between 1900 and 9999."),
+        (None, 10_000, "End year must be a four-digit year between 1900 and 9999."),
+    ],
+)
+def test_grant_service_rejects_out_of_range_years(db_session, start_year, end_year, message):
+    scholar = Scholar(name="Out Of Range Grant Year Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match=message):
+        grant_service.create_grant(
+            db_session,
+            scholar.id,
+            "Out Of Range Grant",
+            None,
+            None,
+            None,
+            None,
+            start_year,
+            end_year,
+            None,
+            "Active",
+            None,
+        )
+
+
 def test_update_grant_rejects_end_year_before_start_year(db_session):
     scholar = Scholar(name="Invalid Updated Grant Range Scholar")
     db_session.add(scholar)
