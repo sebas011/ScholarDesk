@@ -2,6 +2,7 @@
 Entry point for both development and PyInstaller builds.
 """
 
+import os
 import sys
 import shutil
 import subprocess
@@ -13,9 +14,17 @@ import uvicorn
 import app.main  # noqa: F401
 
 
+HEADLESS_SMOKE_TEST_ENVIRONMENT = "SCHOLARDESK_HEADLESS"
+
+
 def _resolve_host() -> str:
     """Keep the application private; a same-machine TLS proxy owns LAN access."""
     return "127.0.0.1"
+
+
+def _is_headless_smoke_test() -> bool:
+    """Allow CI to exercise the frozen server without opening a browser."""
+    return os.environ.get(HEADLESS_SMOKE_TEST_ENVIRONMENT) == "1"
 
 
 def main():
@@ -38,6 +47,10 @@ def main():
     profile_dir = tempfile.mkdtemp(prefix="scholardesk-edge-")
     config = uvicorn.Config("app.main:app", **kwargs)
     server = uvicorn.Server(config)
+
+    if _is_headless_smoke_test():
+        server.run()
+        return
 
     def launch_and_monitor_browser():
         import os

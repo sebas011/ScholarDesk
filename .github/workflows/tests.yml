@@ -59,6 +59,50 @@ jobs:
       - name: Build portable release
         run: cmd /c build.bat
 
+      - name: Smoke test packaged release
+        shell: pwsh
+        run: |
+          $releaseDirectory = Join-Path $env:RUNNER_TEMP "scholardesk-release-smoke"
+          New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
+          Copy-Item .\dist\* $releaseDirectory
+
+          $password = "release-smoke-password"
+          $passwordHash = & .\.venv\Scripts\python.exe -c "from app.core.auth import hash_password; print(hash_password('$password'))"
+          @(
+            "username=release-smoke"
+            "password_hash=$passwordHash"
+          ) | Set-Content -Path (Join-Path $releaseDirectory "auth.txt")
+
+          $previousHeadlessMode = $env:SCHOLARDESK_HEADLESS
+          $env:SCHOLARDESK_HEADLESS = "1"
+          $process = $null
+          try {
+            $process = Start-Process -FilePath (Join-Path $releaseDirectory "ScholarDesk.exe") -WorkingDirectory $releaseDirectory -WindowStyle Hidden -PassThru
+            $authorization = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("release-smoke:$password"))
+            $headers = @{ Authorization = "Basic $authorization" }
+            $deadline = (Get-Date).AddSeconds(20)
+            $response = $null
+            do {
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -Headers $headers
+              } catch {
+                Start-Sleep -Milliseconds 250
+              }
+            } until ($response.StatusCode -eq 200 -or (Get-Date) -ge $deadline)
+
+            if ($response.StatusCode -ne 200) {
+              throw "Packaged ScholarDesk health check did not become ready within 20 seconds."
+            }
+            if (-not (Test-Path (Join-Path $releaseDirectory "grants.db"))) {
+              throw "Packaged ScholarDesk did not create grants.db in the clean release directory."
+            }
+          } finally {
+            if ($null -ne $process -and -not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+            $env:SCHOLARDESK_HEADLESS = $previousHeadlessMode
+          }
+
       - name: Upload portable executables
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

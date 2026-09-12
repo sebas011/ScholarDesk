@@ -25,6 +25,10 @@ def test_ci_builds_and_preserves_the_windows_portable_release_artifact():
     assert "runs-on: windows-latest" in workflow
     assert "python -m venv .venv" in workflow
     assert "cmd /c build.bat" in workflow
+    assert "Smoke test packaged release" in workflow
+    assert "SCHOLARDESK_HEADLESS = \"1\"" in workflow
+    assert "http://127.0.0.1:8000/health" in workflow
+    assert "grants.db in the clean release directory" in workflow
     assert "dist/ScholarDesk.exe" in workflow
     assert "dist/ScholarDeskAdmin.exe" in workflow
     assert "dist/SHA256SUMS.txt" in workflow

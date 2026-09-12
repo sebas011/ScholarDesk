@@ -839,6 +839,32 @@ def test_runner_binds_only_to_loopback_for_tls_proxy_deployment():
     assert application_runner._resolve_host() == "127.0.0.1"
 
 
+def test_headless_smoke_mode_requires_an_explicit_environment_value(monkeypatch):
+    monkeypatch.delenv(application_runner.HEADLESS_SMOKE_TEST_ENVIRONMENT, raising=False)
+    assert application_runner._is_headless_smoke_test() is False
+
+    monkeypatch.setenv(application_runner.HEADLESS_SMOKE_TEST_ENVIRONMENT, "true")
+    assert application_runner._is_headless_smoke_test() is False
+
+    monkeypatch.setenv(application_runner.HEADLESS_SMOKE_TEST_ENVIRONMENT, "1")
+    assert application_runner._is_headless_smoke_test() is True
+
+
+def test_frozen_headless_smoke_mode_starts_no_browser(monkeypatch):
+    server = Mock()
+    timer = Mock()
+    monkeypatch.setattr(application_runner.sys, "frozen", True, raising=False)
+    monkeypatch.setenv(application_runner.HEADLESS_SMOKE_TEST_ENVIRONMENT, "1")
+    monkeypatch.setattr(application_runner.uvicorn, "Config", Mock())
+    monkeypatch.setattr(application_runner.uvicorn, "Server", Mock(return_value=server))
+    monkeypatch.setattr(application_runner.threading, "Timer", timer)
+
+    application_runner.main()
+
+    server.run.assert_called_once_with()
+    timer.assert_not_called()
+
+
 def test_cathedra_caddyfile_uses_tls_and_loopback_upstream():
     caddyfile = (
         Path(__file__).resolve().parent.parent / "deployment" / "Caddyfile.cathedra.vpaa"
