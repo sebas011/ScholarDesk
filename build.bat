@@ -51,7 +51,7 @@ if exist "%BUILD_WORKSPACE%\previous-dist" rmdir /s /q "%BUILD_WORKSPACE%\previo
 
 echo.
 echo === BUILD SUCCESS ===
-echo Output: dist\ScholarDesk.exe and dist\ScholarDeskAdmin.exe
+echo Output: dist\ScholarDesk.exe, dist\ScholarDeskAdmin.exe, and dist\ScholarDeskHost.exe
 set "BUILD_EXIT_CODE=0"
 goto :cleanup
 

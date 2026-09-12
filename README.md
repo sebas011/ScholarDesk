@@ -74,7 +74,7 @@ pip install -r requirements.windows.lock.txt
 build.bat
 ```
 
-Produces `dist\ScholarDesk.exe` and `dist\ScholarDeskAdmin.exe`. Keep both files in the same private release folder. On first use, run `ScholarDeskAdmin.exe` to set the local username and password, then start `ScholarDesk.exe`; the admin tool requires new passwords to contain at least 12 characters and stores only password hashes. Existing valid `auth.txt` credentials migrate automatically to `users.json` on first login, and later administrator runs can add or reset named local accounts. ScholarDesk rejects legacy plaintext `password=` files and returns a configuration error until the administrator helper resets the credentials. The fifth consecutive failed login attempt from one client within one minute receives `429 Too Many Requests`. Once blocked, every login attempt from that client, including one with the correct password, must wait for the supplied `Retry-After` period; an unblocked successful login clears that client's failure history immediately.
+Produces `dist\ScholarDesk.exe`, `dist\ScholarDeskAdmin.exe`, and `dist\ScholarDeskHost.exe`. Keep all three files in the same private release folder. On first use, run `ScholarDeskAdmin.exe` to set the local username and password. For a shared workday, start `ScholarDeskHost.exe` and leave its small control window open; it launches ScholarDesk, opens Windows' default browser, and has the only graceful stop control. Closing a browser tab does not affect the server or connected coworkers. The admin tool requires new passwords to contain at least 12 characters and stores only password hashes. Existing valid `auth.txt` credentials migrate automatically to `users.json` on first login, and later administrator runs can add or reset named local accounts. ScholarDesk rejects legacy plaintext `password=` files and returns a configuration error until the administrator helper resets the credentials. The fifth consecutive failed login attempt from one client within one minute receives `429 Too Many Requests`. Once blocked, every login attempt from that client, including one with the correct password, must wait for the supplied `Retry-After` period; an unblocked successful login clears that client's failure history immediately.
 The build uses only the project's `.venv` tools and an isolated temporary workspace for Python, pytest, and PyInstaller. It removes that workspace after success or failure, so repeated builds do not accumulate stale build output in `%TEMP%`.
 ScholarDesk opens Windows' configured default browser. Close the ScholarDesk process to stop the background server; closing a normal browser tab does not stop it. `grants.db` is created next to the `.exe` the first time you run it, and stays there across runs.
 The Grant Tracker browser assets are bundled into the executable, so normal use does not require Internet access.
@@ -231,7 +231,8 @@ and the runnable Windows release:
 
 The release folder contains runtime state beside the executable:
 
-- `ScholarDesk.exe` — packaged application
+- `ScholarDesk.exe` — packaged application, launched by the host utility for shared use
+- `ScholarDeskHost.exe` — local start/stop window for the shared host PC
 - `ScholarDeskAdmin.exe` — local password-reset utility; keep private
 - `grants.db` — live SQLite data
 - `auth.txt` — legacy single-account credentials retained for migration

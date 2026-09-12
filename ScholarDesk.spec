@@ -132,3 +132,44 @@ admin_exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# The host utility owns the ScholarDesk child process during a shared workday.
+# It has no access to database or account-management internals.
+host_a = Analysis(
+    [str(root / "app" / "host_control.py")],
+    pathex=[str(root)],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=PAYROLL_RELEASE_EXCLUDES,
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+host_pyz = PYZ(host_a.pure, host_a.zipped_data, cipher=block_cipher)
+
+host_exe = EXE(
+    host_pyz,
+    host_a.scripts,
+    host_a.binaries,
+    host_a.zipfiles,
+    host_a.datas,
+    [],
+    name="ScholarDeskHost",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)

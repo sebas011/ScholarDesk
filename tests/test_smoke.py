@@ -12,6 +12,7 @@ import io
 from pathlib import Path
 import re
 import run as application_runner
+from app import host_control
 from app.routers.scholars import _csv_cell
 import pytest
 from fastapi import HTTPException
@@ -1352,6 +1353,28 @@ def test_frozen_release_opens_the_windows_default_browser(monkeypatch):
 
     browser.assert_called_once_with("http://127.0.0.1:8000", new=1)
     server.run.assert_called_once_with()
+
+
+def test_host_control_uses_the_sibling_portable_application(monkeypatch, tmp_path):
+    executable = tmp_path / "ScholarDeskHost.exe"
+    monkeypatch.setattr(host_control.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(host_control.sys, "executable", str(executable))
+
+    assert host_control.release_directory() == tmp_path
+    assert host_control.application_executable_path(tmp_path) == tmp_path / "ScholarDesk.exe"
+
+
+def test_host_control_sends_the_one_time_token_to_loopback(monkeypatch):
+    response = MagicMock(status=200)
+    response_context = MagicMock()
+    response_context.__enter__.return_value = response
+    monkeypatch.setattr(host_control, "urlopen", Mock(return_value=response_context))
+
+    host_control.request_graceful_shutdown("test-one-time-token")
+
+    request = host_control.urlopen.call_args.args[0]
+    assert request.full_url == host_control.HOST_SHUTDOWN_URL
+    assert dict(request.header_items())["X-scholardesk-host-token"] == "test-one-time-token"
 
 
 def test_cathedra_caddyfile_uses_tls_and_loopback_upstream():
@@ -3977,6 +4000,13 @@ def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
     assert 'name="ScholarDeskAdmin"' in contents
     assert "console=True" in contents
     assert '(str(root / "app" / "static"), "app/static")' in contents
+
+
+def test_pyinstaller_spec_builds_a_windowed_host_control_utility():
+    contents = Path("ScholarDesk.spec").read_text(encoding="utf-8")
+
+    assert 'str(root / "app" / "host_control.py")' in contents
+    assert 'name="ScholarDeskHost"' in contents
 
 
 def test_build_script_uses_project_tools_and_preserves_the_previous_release():
