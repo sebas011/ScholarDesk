@@ -23,6 +23,7 @@ from app.core.exceptions import (
 )
 
 ROWS_SHOWN_BY_DEFAULT = 10
+EXPANDED_HISTORY_PAGE_SIZE = 100
 
 
 def build_detail_context(
@@ -32,6 +33,8 @@ def build_detail_context(
     show_all_grants: bool = False,
     error: str | None = None,
     notice: str | None = None,
+    assignment_page: int = 1,
+    grant_page: int = 1,
 ) -> dict:
     if scholar is None:
         return {"scholar": None, "error": error, "notice": notice}
@@ -43,15 +46,31 @@ def build_detail_context(
 
     assignments_total = dept_service.count_for_scholar(db, scholar.id)
     grants_total = grant_service.count_for_scholar(db, scholar.id)
+    if show_all_assignments and assignments_total:
+        assignment_page = min(
+            assignment_page,
+            (assignments_total + EXPANDED_HISTORY_PAGE_SIZE - 1) // EXPANDED_HISTORY_PAGE_SIZE,
+        )
+    if show_all_grants and grants_total:
+        grant_page = min(
+            grant_page,
+            (grants_total + EXPANDED_HISTORY_PAGE_SIZE - 1) // EXPANDED_HISTORY_PAGE_SIZE,
+        )
+    assignment_limit = EXPANDED_HISTORY_PAGE_SIZE if show_all_assignments else ROWS_SHOWN_BY_DEFAULT
+    grant_limit = EXPANDED_HISTORY_PAGE_SIZE if show_all_grants else ROWS_SHOWN_BY_DEFAULT
+    assignment_offset = (assignment_page - 1) * assignment_limit if show_all_assignments else 0
+    grant_offset = (grant_page - 1) * grant_limit if show_all_grants else 0
     assignments = dept_service.list_for_scholar(
         db,
         scholar.id,
-        limit=None if show_all_assignments else ROWS_SHOWN_BY_DEFAULT,
+        limit=assignment_limit,
+        offset=assignment_offset,
     )
     grants = grant_service.list_for_scholar(
         db,
         scholar.id,
-        limit=None if show_all_grants else ROWS_SHOWN_BY_DEFAULT,
+        limit=grant_limit,
+        offset=grant_offset,
     )
 
     # XRM: timeline + notes
@@ -90,9 +109,15 @@ def build_detail_context(
         "assignments": assignments,
         "assignments_total": assignments_total,
         "show_all_assignments": show_all_assignments,
+        "assignment_page": assignment_page,
+        "assignments_has_previous": show_all_assignments and assignment_page > 1,
+        "assignments_has_next": assignment_offset + len(assignments) < assignments_total,
         "grants": grants,
         "grants_total": grants_total,
         "show_all_grants": show_all_grants,
+        "grant_page": grant_page,
+        "grants_has_previous": show_all_grants and grant_page > 1,
+        "grants_has_next": grant_offset + len(grants) < grants_total,
         "notes": notes,
         "activity_logs": activity_logs,
         "grant_reviews": grant_reviews,

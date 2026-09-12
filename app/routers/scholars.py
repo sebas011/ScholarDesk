@@ -468,6 +468,8 @@ def scholar_detail(
     scholar_id: int,
     show_all_assignments: bool = False,
     show_all_grants: bool = False,
+    assignment_page: int = Query(default=1, ge=1, le=10_000),
+    grant_page: int = Query(default=1, ge=1, le=10_000),
     db: Session = Depends(get_db),
 ):
     scholar = scholar_service.get_scholar(db, scholar_id)
@@ -475,7 +477,12 @@ def scholar_detail(
         context = {"scholar": None, "error": "Scholar not found."}
     else:
         context = scholar_service.build_detail_context(
-            db, scholar, show_all_assignments, show_all_grants
+            db,
+            scholar,
+            show_all_assignments,
+            show_all_grants,
+            assignment_page=assignment_page,
+            grant_page=grant_page,
         )
     # Same HX-Request branching as /scholars/new: an htmx swap (e.g. the
     # old sidebar's click-a-name, or an edit row's Cancel/"Show all"

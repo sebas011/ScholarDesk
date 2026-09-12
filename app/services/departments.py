@@ -35,7 +35,7 @@ def _validate_date_range(date_started: date | None, date_ended: date | None) -> 
 
 
 def list_for_scholar(
-    db: Session, scholar_id: int, *, limit: int | None = None
+    db: Session, scholar_id: int, *, limit: int | None = None, offset: int = 0
 ) -> list[DepartmentAssignment]:
     """Return a scholar's assignments in display order.
 
@@ -49,6 +49,8 @@ def list_for_scholar(
     )
     if limit is not None:
         query = query.limit(limit)
+    if offset:
+        query = query.offset(offset)
     return query.all()
 
 

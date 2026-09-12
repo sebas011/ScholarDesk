@@ -56,7 +56,7 @@ def _validate_year_range(start_year: int | None, end_year: int | None) -> None:
 
 
 def list_for_scholar(
-    db: Session, scholar_id: int, *, limit: int | None = None
+    db: Session, scholar_id: int, *, limit: int | None = None, offset: int = 0
 ) -> list[Grant]:
     """Return a scholar's grants in display order.
 
@@ -66,6 +66,8 @@ def list_for_scholar(
     query = db.query(Grant).filter(Grant.scholar_id == scholar_id).order_by(Grant.id)
     if limit is not None:
         query = query.limit(limit)
+    if offset:
+        query = query.offset(offset)
     return query.all()
 
 

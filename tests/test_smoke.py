@@ -1550,14 +1550,54 @@ def test_build_detail_context_bounds_default_history_but_preserves_totals(db_ses
     assert len(context["grants"]) == 10
     assert set(context["grant_reviews"]) == {grant.id for grant in context["grants"]}
 
-    full_context = scholar_service.build_detail_context(
+    expanded_context = scholar_service.build_detail_context(
         db_session,
         scholar,
         show_all_assignments=True,
         show_all_grants=True,
     )
-    assert len(full_context["assignments"]) == 11
-    assert len(full_context["grants"]) == 11
+    assert len(expanded_context["assignments"]) == 11
+    assert len(expanded_context["grants"]) == 11
+
+
+def test_build_detail_context_pages_expanded_history(db_session):
+    scholar = Scholar(name="Paged Detail Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    db_session.add_all(
+        DepartmentAssignment(scholar_id=scholar.id, department=f"Department {index}")
+        for index in range(101)
+    )
+    db_session.add_all(
+        Grant(scholar_id=scholar.id, program_applied=f"Grant {index}", status="Active")
+        for index in range(101)
+    )
+    db_session.commit()
+
+    first_page = scholar_service.build_detail_context(
+        db_session,
+        scholar,
+        show_all_assignments=True,
+        show_all_grants=True,
+    )
+    second_page = scholar_service.build_detail_context(
+        db_session,
+        scholar,
+        show_all_assignments=True,
+        show_all_grants=True,
+        assignment_page=2,
+        grant_page=2,
+    )
+
+    assert len(first_page["assignments"]) == 100
+    assert len(first_page["grants"]) == 100
+    assert first_page["assignments_has_next"] is True
+    assert first_page["grants_has_next"] is True
+    assert len(second_page["assignments"]) == 1
+    assert len(second_page["grants"]) == 1
+    assert second_page["assignments_has_previous"] is True
+    assert second_page["grants_has_previous"] is True
 
 
 # def test_get_full_scholar_data_groups_assignments(db_session):

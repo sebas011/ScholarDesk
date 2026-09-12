@@ -115,10 +115,17 @@
         {% if assignments_total > assignments|length or show_all_assignments %}
         <div class="px-3 py-2 text-xs">
             {% if show_all_assignments %}
-            <a href="#" class="text-indigo-600 font-semibold" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
+            <span class="text-slate-500">Showing {{ assignments|length }} of {{ assignments_total }} assignments.</span>
+            {% if assignments_has_previous %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}?show_all_assignments=true&assignment_page={{ assignment_page - 1 }}" hx-target="#scholar-detail">Previous</a>
+            {% endif %}
+            {% if assignments_has_next %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}?show_all_assignments=true&assignment_page={{ assignment_page + 1 }}" hx-target="#scholar-detail">Next 100</a>
+            {% endif %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
             {% else %}
             <a href="#" class="text-indigo-600 font-semibold" hx-get="/scholars/{{ scholar.id }}?show_all_assignments=true" hx-target="#scholar-detail">
-                Show all {{ assignments_total }} assignments
+                Show assignments in pages of 100
             </a>
             {% endif %}
         </div>
@@ -170,10 +177,17 @@
         {% if grants_total > grants|length or show_all_grants %}
         <div class="px-3 py-2 text-xs">
             {% if show_all_grants %}
-            <a href="#" class="text-indigo-600 font-semibold" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
+            <span class="text-slate-500">Showing {{ grants|length }} of {{ grants_total }} grants.</span>
+            {% if grants_has_previous %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}?show_all_grants=true&grant_page={{ grant_page - 1 }}" hx-target="#scholar-detail">Previous</a>
+            {% endif %}
+            {% if grants_has_next %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}?show_all_grants=true&grant_page={{ grant_page + 1 }}" hx-target="#scholar-detail">Next 100</a>
+            {% endif %}
+            <a href="#" class="text-indigo-600 font-semibold ml-2" hx-get="/scholars/{{ scholar.id }}" hx-target="#scholar-detail">Show fewer</a>
             {% else %}
             <a href="#" class="text-indigo-600 font-semibold" hx-get="/scholars/{{ scholar.id }}?show_all_grants=true" hx-target="#scholar-detail">
-                Show all {{ grants_total }} grants
+                Show grants in pages of 100
             </a>
             {% endif %}
         </div>
