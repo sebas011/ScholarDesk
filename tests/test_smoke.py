@@ -622,23 +622,31 @@ def test_json_formatter_emits_parseable_utc_log_record():
     assert payload["logger"] == "grant_tracker"
     assert payload["message"] == "Scholar 123 updated"
 
-def test_auth_accepts_credentials_from_file(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "contents",
+    (
+        "username=test-user\\npassword=test-pass\\n",
+        "username=test-user\\npassword_hash=not-a-valid-hash\\n",
+    ),
+)
+def test_auth_rejects_non_hashed_or_malformed_credentials(tmp_path, monkeypatch, contents):
     credentials_file = tmp_path / "auth.txt"
-    credentials_file.write_text("username=test-user\npassword=test-pass\n", encoding="utf-8")
+    credentials_file.write_text(contents, encoding="utf-8")
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
 
     credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
 
-    assert auth.verify_credentials(credentials) == "test-user"
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(credentials)
+
+    assert error.value.status_code == 503
+    assert "Reset credentials with ScholarDeskAdmin" in str(error.value.detail)
 
 
 def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
-    credentials_file.write_text(
-        "username=test-user\npassword=test-pass\n",
-        encoding="utf-8",
-    )
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("test-user", "test-pass")
 
     credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
 
@@ -654,11 +662,8 @@ def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
 )
 def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, password):
     credentials_file = tmp_path / "auth.txt"
-    credentials_file.write_text(
-        "username=test-user\npassword=test-pass\n",
-        encoding="utf-8",
-    )
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("test-user", "test-pass")
 
     credentials = HTTPBasicCredentials(username=username, password=password)
 
@@ -681,6 +686,11 @@ def test_auth_creates_fail_closed_credentials_setup_file(tmp_path, monkeypatch):
     assert "password_hash=" in contents
     assert "password=" not in contents
     assert auth.using_default_password() is True
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(HTTPBasicCredentials(username="admin", password="anything"))
+
+    assert error.value.status_code == 503
 
 
 def test_hashed_credentials_are_verified_without_storing_the_password(tmp_path, monkeypatch):
@@ -1912,7 +1922,7 @@ def test_using_default_password_reflects_auth_file(tmp_path, monkeypatch):
         "username=admin\npassword=changed-password\n",
         encoding="utf-8",
     )
-    assert auth.using_default_password() is False
+    assert auth.using_default_password() is True
 
 def test_logging_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
     import importlib

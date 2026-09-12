@@ -1,8 +1,8 @@
 """Local HTTP Basic authentication and credential administration helpers.
 
 Passwords written by the administrator helper use PBKDF2-HMAC-SHA256. Legacy
-``password=`` files remain readable only to allow a safe, deliberate migration;
-running ``python -m app.admin`` replaces them with a non-reversible hash.
+``password=`` files are deliberately rejected at runtime; running
+``python -m app.admin`` replaces them with a non-reversible hash.
 """
 
 from __future__ import annotations
@@ -52,11 +52,11 @@ def _load_credential_values() -> dict[str, str]:
 def load_credentials() -> tuple[str, str]:
     """Return the configured username and stored credential value.
 
-    This preserves the previous return type for callers. The second value may
-    now be a password hash, never a generated plaintext password.
+    This preserves the previous return type for callers. The second value is
+    always the configured password hash; legacy plaintext values are excluded.
     """
     values = _load_credential_values()
-    return values.get("username", ""), values.get("password_hash") or values.get("password", "")
+    return values.get("username", ""), values.get("password_hash", "")
 
 
 def _validate_username(username: str) -> str:
@@ -107,6 +107,23 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return secrets.compare_digest(actual_key, expected_key)
 
 
+def _is_supported_password_hash(stored_hash: str) -> bool:
+    """Return whether a credential has the exact PBKDF2 record shape we support."""
+    try:
+        scheme, iterations_text, encoded_salt, encoded_key = stored_hash.split("$", 3)
+        iterations = int(iterations_text)
+        salt = base64.urlsafe_b64decode(encoded_salt.encode("ascii"))
+        key = base64.urlsafe_b64decode(encoded_key.encode("ascii"))
+    except (UnicodeEncodeError, ValueError):
+        return False
+    return (
+        scheme == PASSWORD_HASH_SCHEME
+        and iterations == PASSWORD_HASH_ITERATIONS
+        and bool(salt)
+        and bool(key)
+    )
+
+
 def set_hashed_credentials(username: str, password: str) -> None:
     """Atomically replace ``auth.txt`` with one PBKDF2-protected account."""
     username = _validate_username(username)
@@ -131,19 +148,19 @@ def _load_auth_record() -> tuple[str, str, bool]:
 
 def using_default_password() -> bool:
     username, credential, is_hashed = _load_auth_record()
-    return not username or not credential or (
-        not is_hashed and username == DEFAULT_USERNAME and credential == DEFAULT_PASSWORD
-    )
+    return not username or not credential or not is_hashed
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     correct_username, stored_credential, is_hashed = _load_auth_record()
+    if not correct_username or not is_hashed or not _is_supported_password_hash(stored_credential):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is not configured. Reset credentials with ScholarDeskAdmin.",
+        )
+
     is_valid_username = secrets.compare_digest(credentials.username, correct_username)
-    is_valid_password = (
-        verify_password(credentials.password, stored_credential)
-        if is_hashed
-        else secrets.compare_digest(credentials.password, stored_credential)
-    )
+    is_valid_password = verify_password(credentials.password, stored_credential)
     if not (is_valid_username and is_valid_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
