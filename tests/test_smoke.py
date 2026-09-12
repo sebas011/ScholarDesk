@@ -658,9 +658,9 @@ def test_auth_rejects_non_hashed_or_malformed_credentials(tmp_path, monkeypatch,
 def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
-    auth.set_hashed_credentials("test-user", "test-pass")
+    auth.set_hashed_credentials("test-user", "test-password")
 
-    credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
+    credentials = HTTPBasicCredentials(username="test-user", password="test-password")
 
     assert auth.verify_credentials(_authentication_request(), credentials) == "test-user"
 
@@ -668,14 +668,14 @@ def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     ("username", "password"),
     [
-        ("wrong-user", "test-pass"),
+        ("wrong-user", "test-password"),
         ("test-user", "wrong-pass"),
     ],
 )
 def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, password):
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
-    auth.set_hashed_credentials("test-user", "test-pass")
+    auth.set_hashed_credentials("test-user", "test-password")
 
     credentials = HTTPBasicCredentials(username=username, password=password)
 
@@ -690,13 +690,13 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
     now = [0.0]
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
-    monkeypatch.setattr(auth, "verify_password", lambda password, _: password == "correct")
+    monkeypatch.setattr(auth, "verify_password", lambda password, _: password == "correct-pass")
     monkeypatch.setattr(
         auth,
         "failed_login_limiter",
         auth.FailedLoginRateLimiter(clock=lambda: now[0]),
     )
-    auth.set_hashed_credentials("test-user", "correct")
+    auth.set_hashed_credentials("test-user", "correct-pass")
     request = _authentication_request("192.0.2.10")
     wrong_credentials = HTTPBasicCredentials(username="test-user", password="wrong")
 
@@ -706,7 +706,7 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
         assert error.value.status_code == 401
 
     assert auth.verify_credentials(
-        request, HTTPBasicCredentials(username="test-user", password="correct")
+        request, HTTPBasicCredentials(username="test-user", password="correct-pass")
     ) == "test-user"
 
     for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
@@ -725,6 +725,19 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
         auth.verify_credentials(request, wrong_credentials)
 
     assert error.value.status_code == 401
+
+
+def test_hashed_credentials_reject_a_password_shorter_than_the_minimum(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    with pytest.raises(
+        ValueError,
+        match=rf"Password must be at least {auth.PASSWORD_MIN_LENGTH} characters long.",
+    ):
+        auth.set_hashed_credentials("test-user", "x" * (auth.PASSWORD_MIN_LENGTH - 1))
+
+    assert not credentials_file.exists()
 
 
 def test_auth_creates_fail_closed_credentials_setup_file(tmp_path, monkeypatch):

@@ -16,7 +16,7 @@ from app.migrations import SchemaVersionError, baseline_legacy_database
 def _set_password() -> None:
     """Prompt locally and write a PBKDF2 password hash without echoing it."""
     username = input(f"Username [{DEFAULT_USERNAME}]: ").strip() or DEFAULT_USERNAME
-    password = getpass.getpass("New password: ")
+    password = getpass.getpass("New password (at least 12 characters): ")
     confirmation = getpass.getpass("Confirm new password: ")
     if password != confirmation:
         raise SystemExit("Passwords did not match; auth.txt was not changed.")

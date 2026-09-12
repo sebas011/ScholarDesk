@@ -28,6 +28,7 @@ DEFAULT_PASSWORD = "changeme"
 PASSWORD_HASH_SCHEME = "pbkdf2_sha256"
 PASSWORD_HASH_ITERATIONS = 600_000
 PASSWORD_SALT_BYTES = 16
+PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
 USERNAME_MAX_LENGTH = 200
 MAX_FAILED_LOGIN_ATTEMPTS = 5
@@ -129,6 +130,8 @@ def _validate_username(username: str) -> str:
 def _validate_password(password: str) -> str:
     if not password:
         raise ValueError("Password is required.")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Password must be at least {PASSWORD_MIN_LENGTH} characters long.")
     if len(password) > PASSWORD_MAX_LENGTH:
         raise ValueError(f"Password is too long (max {PASSWORD_MAX_LENGTH} characters).")
     return password
