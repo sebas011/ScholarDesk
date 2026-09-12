@@ -301,6 +301,13 @@ def test_empty_year_param_does_not_422(client):
         assert resp.status_code == 200, f"{url}?year= returned {resp.status_code}, expected 200"
 
 
+def test_home_rejects_out_of_range_year(client):
+    response = client.get("/home", params={"year": "10000"})
+
+    assert response.status_code == 422
+    assert "Please fill in: query.year" in response.text
+
+
 def test_create_scholar_with_assignment(client):
     resp = client.post(
         "/scholars",

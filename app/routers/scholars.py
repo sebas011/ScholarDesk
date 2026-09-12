@@ -76,7 +76,14 @@ def _parse_optional_grant_year(value: str, field_name: str) -> int | None:
     return int(normalized)
 
 @router.get("/home", response_class=HTMLResponse)
-def home(request: Request, year: str | None = None, db: Session = Depends(get_db)):
+def home(
+    request: Request,
+    year: str | None = Query(
+        default=None,
+        pattern=r"^(|19[0-9]{2}|[2-9][0-9]{3})$",
+    ),
+    db: Session = Depends(get_db),
+):
     from app.services import stats as stats_service
     from datetime import date as _date
 
