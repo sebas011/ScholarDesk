@@ -135,6 +135,7 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
             CSRF_COOKIE_NAME,
             csrf_token,
             httponly=False,
+            secure=request.url.scheme == "https",
             samesite="strict",
             path="/",
         )

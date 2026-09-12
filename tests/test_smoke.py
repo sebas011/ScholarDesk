@@ -281,6 +281,28 @@ def test_new_scholar_form_contains_csrf_token(client):
     assert f'name="csrf_token" value="{csrf_token}"' in response.text
 
 
+def test_csrf_cookie_is_secure_over_https():
+    secure_client = TestClient(app, base_url="https://testserver")
+    try:
+        response = secure_client.get("/home")
+    finally:
+        secure_client.close()
+
+    assert response.status_code == 200
+    assert "Secure" in response.headers["set-cookie"]
+
+
+def test_csrf_cookie_remains_usable_over_local_http():
+    local_client = TestClient(app)
+    try:
+        response = local_client.get("/home")
+    finally:
+        local_client.close()
+
+    assert response.status_code == 200
+    assert "Secure" not in response.headers["set-cookie"]
+
+
 def test_browser_form_submission_preserves_fields_after_csrf_check(client):
     """A regular HTML form sends its CSRF token in the body, not a header."""
     client.headers.pop("X-CSRF-Token")
