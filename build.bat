@@ -52,15 +52,24 @@ if exist "%BUILD_WORKSPACE%\previous-dist" rmdir /s /q "%BUILD_WORKSPACE%\previo
 echo.
 echo === BUILD SUCCESS ===
 echo Output: dist\ScholarDesk.exe and dist\ScholarDeskAdmin.exe
-goto :eof
+set "BUILD_EXIT_CODE=0"
+goto :cleanup
 
 :error
 echo.
 echo === BUILD FAILED ===
-exit /b 1
+set "BUILD_EXIT_CODE=1"
+goto :cleanup
 
 :restore_previous_release
 echo.
 echo Publish failed. Restoring the previous release...
 if exist "%BUILD_WORKSPACE%\previous-dist" move "%BUILD_WORKSPACE%\previous-dist" "dist"
 goto :error
+
+:cleanup
+if defined BUILD_WORKSPACE if exist "%BUILD_WORKSPACE%" (
+    rmdir /s /q "%BUILD_WORKSPACE%"
+    if exist "%BUILD_WORKSPACE%" echo WARNING: Could not clean the isolated build workspace: %BUILD_WORKSPACE%
+)
+exit /b %BUILD_EXIT_CODE%

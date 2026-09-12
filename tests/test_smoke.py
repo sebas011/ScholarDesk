@@ -3734,6 +3734,11 @@ def test_build_script_uses_project_tools_and_preserves_the_previous_release():
         "|| goto :restore_previous_release" in contents
     )
     assert ':restore_previous_release' in contents
+    assert 'set "BUILD_EXIT_CODE=0"' in contents
+    assert 'set "BUILD_EXIT_CODE=1"' in contents
+    assert ':cleanup' in contents
+    assert 'rmdir /s /q "%BUILD_WORKSPACE%"' in contents
+    assert 'exit /b %BUILD_EXIT_CODE%' in contents
     assert 'rmdir /s /q "build"' not in contents
     assert 'if exist "dist" rmdir /s /q "dist"' not in contents
 
