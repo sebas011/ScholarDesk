@@ -1,17 +1,3 @@
-# Verified ScholarDesk dependency set. Upgrade deliberately and rerun the full
-# test suite, security audit, and portable build before changing a pin.
-fastapi==0.141.1
-starlette==1.6.0
-pydantic==2.13.4
-uvicorn==0.52.4
-sqlalchemy==2.0.52
-jinja2==3.1.6
-python-multipart==0.0.32
-pytest==9.1.1
-pytest-cov==7.1.0
-httpx2==2.12.0
-pyinstaller==6.22.2
-openpyxl==3.1.5
-ruff==0.16.3
-pip-audit==2.10.1
-pandas==3.0.5
+# Install the complete, version-pinned ScholarDesk dependency set. Upgrade the
+# lock file deliberately, then rerun the tests, security audit, and portable build.
+-r requirements.lock.txt
