@@ -11,7 +11,7 @@ import secrets
 from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
 from app.database import Base, app_dir, engine
 from app.migrations import ensure_schema_version, existing_table_names
-from app.routers import scholars, records, launcher
+from app.routers import grant_tracker, records, scholars
 from app.templates_config import STATIC_DIRECTORY, templates
 
 from fastapi import Depends
@@ -52,9 +52,9 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
+app.include_router(grant_tracker.router)
 app.include_router(scholars.router)
 app.include_router(records.router)
-app.include_router(launcher.router)
 
 
 @app.get("/health", dependencies=[Depends(verify_credentials)])
@@ -68,7 +68,6 @@ def health_check() -> JSONResponse:
         return JSONResponse(status_code=503, content={"status": "unavailable"})
     return JSONResponse(content={"status": "ok"})
 
-PAYROLL_PATH_PREFIX = "/payroll"
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 CSRF_COOKIE_NAME = "scholardesk_csrf"
 CSRF_FORM_FIELD = "csrf_token"
@@ -76,7 +75,7 @@ CSRF_HEADER_NAME = "x-csrf-token"
 VENDORED_STATIC_PATH_PREFIX = "/static/vendor/"
 
 @app.middleware("http")
-async def apply_security_headers_and_hide_payroll(request: Request, call_next):
+async def apply_security_headers(request: Request, call_next):
     if request.url.path.startswith(VENDORED_STATIC_PATH_PREFIX):
         response = await call_next(request)
         if response.status_code == 200:
@@ -94,11 +93,7 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     request.state.csrf_token = csrf_token
     request.state.csp_nonce = csp_nonce
 
-    if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
-        f"{PAYROLL_PATH_PREFIX}/"
-    ):
-        response = HTMLResponse(status_code=404)
-    elif request.method in UNSAFE_HTTP_METHODS:
+    if request.method in UNSAFE_HTTP_METHODS:
         origin = request.headers.get("origin")
         origin_host = urlsplit(origin).netloc.lower() if origin else ""
         request_host = request.headers.get("host", "").lower()

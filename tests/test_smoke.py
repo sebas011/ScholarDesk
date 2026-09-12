@@ -2933,7 +2933,8 @@ def test_payroll_import_rolls_back_on_invalid_record():
         db.close()
         PayrollBase.metadata.drop_all(bind=payroll_engine)
 
-def test_payroll_routes_are_hidden(client):
+def test_grant_tracker_release_does_not_register_payroll_routes(client):
+    """Payroll must be absent, not merely hidden behind middleware."""
     for method, path in (
         ("get", "/payroll"),
         ("post", "/payroll/import"),
