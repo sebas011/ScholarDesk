@@ -580,7 +580,7 @@ def test_update_grant_with_blank_program_shows_error_not_500(client):
 def test_delete_nonexistent_grant_shows_error_not_500(client):
     client.post("/scholars", data={"name": "Delete Grant Scholar"})
     resp = client.delete("/grants/999?scholar_id=1")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     assert "not found" in resp.text.lower()
 
 
