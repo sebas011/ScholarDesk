@@ -356,8 +356,14 @@ def ensure_schema_version(
         return version
 
     if not database_was_empty:
+        # Preserve unversioned legacy databases without baselining or migrating
+        # them, but do not start a server against an incompatible schema that
+        # will fail later during normal user requests.
+        with closing(engine.raw_connection()) as connection:
+            _validate_schema_connection(connection, version=BASELINE_SCHEMA_VERSION)
         logger.warning(
-            "Database has no schema version record; preserving it without automatic migration."
+            "Database has no schema version record; preserving the validated legacy schema "
+            "without automatic migration."
         )
         return None
 
