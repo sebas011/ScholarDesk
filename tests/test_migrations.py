@@ -70,6 +70,31 @@ def test_newer_database_schema_refuses_startup(tmp_path):
         engine.dispose()
 
 
+def test_current_version_database_missing_index_refuses_startup(tmp_path):
+    database_path = tmp_path / "missing-index.db"
+    _create_legacy_v1_database(database_path)
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("DROP INDEX ix_activity_logs_scholar_id"))
+            connection.execute(
+                text(
+                    "CREATE TABLE schema_migrations ("
+                    "version INTEGER NOT NULL PRIMARY KEY, "
+                    "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text("INSERT INTO schema_migrations (version) VALUES (:version)"),
+                {"version": CURRENT_SCHEMA_VERSION},
+            )
+
+        with pytest.raises(SchemaVersionError, match="missing indexes"):
+            ensure_schema_version(engine, database_was_empty=False)
+    finally:
+        engine.dispose()
+
+
 def test_baseline_legacy_database_creates_backup_then_records_version(tmp_path):
     database_path = tmp_path / "legacy.db"
     backup_directory = tmp_path / "backups"

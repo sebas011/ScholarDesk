@@ -238,7 +238,12 @@ def ensure_schema_version(
         if version < CURRENT_SCHEMA_VERSION:
             if backup_directory is None:
                 raise SchemaVersionError("A backup directory is required before schema migration.")
-            return _apply_pending_migrations(engine, version, backup_directory)
+            version = _apply_pending_migrations(engine, version, backup_directory)
+
+        # A recorded current version is not proof that the database still has
+        # every object the application needs. Verify it before serving traffic.
+        with closing(engine.raw_connection()) as connection:
+            _validate_schema_connection(connection, version=version)
         return version
 
     if not database_was_empty:
