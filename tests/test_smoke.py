@@ -3139,6 +3139,29 @@ def test_add_grant_rejects_malformed_year(client):
     finally:
         db.close()
 
+
+def test_update_grant_rejects_malformed_year_without_clearing_existing_value(client):
+    client.post("/scholars", data={"name": "Update Grant Year Scholar"})
+    client.post(
+        "/scholars/1/grants",
+        data={"program_applied": "Existing Grant", "start_year": "2024"},
+    )
+
+    response = client.post(
+        "/grants/1?scholar_id=1",
+        data={"program_applied": "Existing Grant", "start_year": "20X6"},
+    )
+
+    assert response.status_code == 200
+    assert "Start year must be a four-digit year between 1900 and 9999." in response.text
+
+    db = TestSession()
+    try:
+        assert db.get(Grant, 1).start_year == 2024
+    finally:
+        db.close()
+
+
 def test_dashboard_rejects_invalid_page_bounds(client):
     assert client.get("/dashboard?page=0").status_code == 422
     assert client.get("/dashboard?page=10001").status_code == 422

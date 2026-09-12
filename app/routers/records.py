@@ -248,6 +248,8 @@ def update_grant_route(
     grant = grant_service.get_grant(db, grant_id)
     error_message = None
     try:
+        parsed_start_year = _parse_optional_year(start_year, "Start year")
+        parsed_end_year = _parse_optional_year(end_year, "End year")
         grant_service.update_grant(
             db,
             scholar_id,
@@ -257,8 +259,8 @@ def update_grant_route(
             delivering_hei,
             date_started,
             date_ended,
-            int(start_year) if start_year.strip().isdigit() else None,
-            int(end_year) if end_year.strip().isdigit() else None,
+            parsed_start_year,
+            parsed_end_year,
             extension,
             status,
             remarks,
