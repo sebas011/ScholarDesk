@@ -16,12 +16,16 @@ from app.backups import DatabaseBackupError, backup_database
 from app.core.logging import logger
 
 BASELINE_SCHEMA_VERSION = 1
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 MIGRATION_TABLE = "schema_migrations"
 ForeignKeyDefinition = tuple[str, str, str, str]
 ACTIVITY_LOG_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS ix_activity_logs_scholar_id "
     "ON activity_logs (scholar_id)"
+)
+ACTIVITY_LOG_ACTOR_COLUMN_SQL = (
+    "ALTER TABLE activity_logs "
+    "ADD COLUMN actor_username VARCHAR(200) NOT NULL DEFAULT 'legacy'"
 )
 
 
@@ -54,6 +58,8 @@ def _expected_schema(version: int = CURRENT_SCHEMA_VERSION) -> tuple[
 
     if version < 2:
         indexes_by_table["activity_logs"].discard("ix_activity_logs_scholar_id")
+    if version < 4:
+        columns_by_table["activity_logs"].discard("actor_username")
     return columns_by_table, indexes_by_table, foreign_keys
 
 
@@ -203,6 +209,13 @@ def _apply_pending_migrations(engine: Engine, version: int, backup_directory: Pa
                 # before the activity-log index was present. The statement is
                 # idempotent, so normal version-2 upgrades remain safe.
                 connection.execute(text(ACTIVITY_LOG_INDEX_SQL))
+            elif target_version == 4:
+                existing_columns = {
+                    row[1]
+                    for row in connection.execute(text("PRAGMA table_info(activity_logs)"))
+                }
+                if "actor_username" not in existing_columns:
+                    connection.execute(text(ACTIVITY_LOG_ACTOR_COLUMN_SQL))
             else:
                 raise SchemaVersionError(
                     f"No migration is registered for version {target_version}."

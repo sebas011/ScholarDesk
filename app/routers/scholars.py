@@ -22,8 +22,18 @@ from app.core.exceptions import (
 from app.utils.dates import parse_date
 
 
-def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
-    db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
+def _log_activity(
+    request: Request, db: Session, scholar_id: int, category: str, description: str
+) -> None:
+    actor_username = request.state.authenticated_user
+    db.add(
+        ActivityLog(
+            scholar_id=scholar_id,
+            category=category,
+            description=description,
+            actor_username=actor_username,
+        )
+    )
 
 
 def _csv_cell(value: object | None) -> str:
@@ -406,12 +416,13 @@ def create_scholar_page(
             )
 
             _log_activity(
+                request,
                 db,
                 scholar.id,
                 "grant",
                 f"Initial grant added: {program_applied.strip()}",
             )
-        _log_activity(db, scholar.id, "scholar", f"Scholar '{scholar.name}' created")
+        _log_activity(request, db, scholar.id, "scholar", "Scholar created")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
@@ -508,6 +519,7 @@ def create_scholar(
                 _parse_optional_assignment_date(date_started, "Start date") or date.today(),
                 _parse_optional_assignment_date(date_ended, "End date"),
             )
+        _log_activity(request, db, scholar.id, "scholar", "Scholar created")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
@@ -557,7 +569,7 @@ def update_scholar(
             previous_degree=previous_degree,
             missing_requirements=missing_requirements,
         )
-        _log_activity(db, scholar_id, "scholar", f"Scholar '{scholar.name}' updated")
+        _log_activity(request, db, scholar_id, "scholar", "Scholar updated")
         db.commit()
         db.refresh(scholar)
     except (ScholarNotFoundError, InvalidScholarError, ValueError) as e:
@@ -579,10 +591,11 @@ def update_scholar(
 def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_db)):
     try:
         _log_activity(
-        db,
-        scholar_id,
-        "scholar",
-        "Scholar deleted",
+            request,
+            db,
+            scholar_id,
+            "scholar",
+            "Scholar deleted",
         )
 
         scholar_service.delete_scholar(db, scholar_id)

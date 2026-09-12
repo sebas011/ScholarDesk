@@ -241,4 +241,5 @@ def verify_credentials(
             headers={"WWW-Authenticate": "Basic"},
         )
     failed_login_limiter.clear(client_address)
+    request.state.authenticated_user = credentials.username
     return credentials.username

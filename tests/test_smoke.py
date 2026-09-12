@@ -25,7 +25,7 @@ from app.utils.dates import parse_date, range_active_in_year
 from app.core import network
 from app.database import _set_sqlite_pragmas
 from app.services import grants as grant_service
-from app.models import DepartmentAssignment, Grant, GrantReview, Scholar
+from app.models import ActivityLog, DepartmentAssignment, Grant, GrantReview, Scholar
 from app.services import scholars as scholar_service
 from app.core.exceptions import InvalidScholarError, ScholarNotFoundError
 from app.services import departments as dept_service
@@ -87,13 +87,14 @@ engine = create_engine(
 TestSession = sessionmaker(bind=engine)
 
 
-def override_verify_credentials():
+def override_verify_credentials(request: Request) -> str:
     """Bypass the Basic Auth gate entirely for tests - same reasoning
     as overriding get_db above: tests must never depend on, or write
     to, the real auth.txt file next to the real grants.db. Without
     this, running pytest would create a stray auth.txt in the repo
     root, and tests would silently start failing on any machine where
     the real password had been changed from the default."""
+    request.state.authenticated_user = "test-user"
     return "test-user"
 
 
@@ -187,6 +188,20 @@ def test_health_check_returns_503_when_database_probe_fails(client, monkeypatch)
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable"}
+
+
+def test_scholar_creation_records_authenticated_actor(client):
+    response = client.post("/scholars", data={"name": "Audited Scholar"})
+
+    assert response.status_code == 200
+    assert "by test-user" in response.text
+    db = TestSession()
+    try:
+        activity = db.query(ActivityLog).one()
+        assert activity.description == "Scholar created"
+        assert activity.actor_username == "test-user"
+    finally:
+        db.close()
 
 
 def test_health_check_returns_503_when_core_table_is_missing(client, monkeypatch, tmp_path):

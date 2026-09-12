@@ -234,3 +234,62 @@ def test_version_two_database_repairs_missing_activity_log_index(tmp_path):
         assert len(list(backup_directory.glob("version-two.backup-*.db"))) == 1
     finally:
         engine.dispose()
+
+
+def test_version_three_database_receives_actor_attribution_column(tmp_path):
+    database_path = tmp_path / "version-three.db"
+    backup_directory = tmp_path / "backups"
+    _create_legacy_v1_database(database_path)
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("DROP INDEX ix_activity_logs_scholar_id"))
+            connection.execute(text("DROP TABLE activity_logs"))
+            connection.execute(
+                text(
+                    "CREATE TABLE activity_logs ("
+                    "id INTEGER NOT NULL PRIMARY KEY, "
+                    "scholar_id INTEGER NULL, "
+                    "category VARCHAR(50), "
+                    "description TEXT NOT NULL, "
+                    "created_at DATETIME, "
+                    "FOREIGN KEY(scholar_id) REFERENCES scholars(id) ON DELETE SET NULL)"
+                )
+            )
+            connection.execute(
+                text("CREATE INDEX ix_activity_logs_scholar_id ON activity_logs (scholar_id)")
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO activity_logs (category, description) "
+                    "VALUES ('system', 'legacy event')"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE schema_migrations ("
+                    "version INTEGER NOT NULL PRIMARY KEY, "
+                    "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
+            for version in (BASELINE_SCHEMA_VERSION, 2, 3):
+                connection.execute(
+                    text("INSERT INTO schema_migrations (version) VALUES (:version)"),
+                    {"version": version},
+                )
+
+        assert ensure_schema_version(
+            engine,
+            database_was_empty=False,
+            backup_directory=backup_directory,
+        ) == CURRENT_SCHEMA_VERSION
+        with engine.connect() as connection:
+            actor_username = connection.execute(
+                text("SELECT actor_username FROM activity_logs")
+            ).scalar_one()
+
+        assert actor_username == "legacy"
+        assert get_schema_version(engine) == CURRENT_SCHEMA_VERSION
+        assert len(list(backup_directory.glob("version-three.backup-*.db"))) == 1
+    finally:
+        engine.dispose()

@@ -23,8 +23,18 @@ from app.utils.dates import parse_date
 
 router = APIRouter()
 
-def _log_activity(db: Session, scholar_id: int, category: str, description: str) -> None:
-    db.add(ActivityLog(scholar_id=scholar_id, category=category, description=description))
+def _log_activity(
+    request: Request, db: Session, scholar_id: int, category: str, description: str
+) -> None:
+    actor_username = request.state.authenticated_user
+    db.add(
+        ActivityLog(
+            scholar_id=scholar_id,
+            category=category,
+            description=description,
+            actor_username=actor_username,
+        )
+    )
 
 def _parse_optional_date(value: str, field_name: str) -> date | None:
     normalized = value.strip()
@@ -83,7 +93,7 @@ def add_assignment(
             _parse_optional_date(date_started, "Start date"),
             _parse_optional_date(date_ended, "End date"),
         )
-        _log_activity(db, scholar_id, "assignment", f"Assignment added: {department}")
+        _log_activity(request, db, scholar_id, "assignment", f"Assignment added: {department}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -135,7 +145,7 @@ def update_assignment_route(
             _parse_optional_date(date_started, "Start date"),
             _parse_optional_date(date_ended, "End date"),
         )
-        _log_activity(db, scholar_id, "assignment", f"Assignment updated: {department}")
+        _log_activity(request, db, scholar_id, "assignment", f"Assignment updated: {department}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -163,7 +173,7 @@ def delete_assignment(
 
     try:
         dept_service.delete_assignment(db, scholar_id, assignment_id)
-        _log_activity(db, scholar_id, "assignment", "Assignment deleted")
+        _log_activity(request, db, scholar_id, "assignment", "Assignment deleted")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -204,7 +214,7 @@ def add_grant(
             status,
             remarks,
         )
-        _log_activity(db, scholar_id, "grant", f"Grant added: {program_applied}")
+        _log_activity(request, db, scholar_id, "grant", f"Grant added: {program_applied}")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -265,7 +275,7 @@ def update_grant_route(
             status,
             remarks,
         )
-        _log_activity(db, scholar_id, "grant", f"Grant updated: {program_applied}")
+        _log_activity(request, db, scholar_id, "grant", f"Grant updated: {program_applied}")
         db.commit()
     except ValueError as exc:
         db.rollback()
@@ -285,7 +295,7 @@ def update_grant_route(
 def delete_grant(request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)):
     try:
         grant_service.delete_grant(db, scholar_id, grant_id)
-        _log_activity(db, scholar_id, "grant", "Grant deleted")
+        _log_activity(request, db, scholar_id, "grant", "Grant deleted")
         db.commit()
     except ValueError as e:
         db.rollback()
@@ -302,7 +312,7 @@ def add_scholar_note(
 ):
     try:
         note_service.add_note(db, scholar_id, content)
-        _log_activity(db, scholar_id, "note", "Note added by user")
+        _log_activity(request, db, scholar_id, "note", "Note added by user")
         db.commit()
     except (InvalidScholarError, ScholarNotFoundError) as exc:
         db.rollback()
@@ -319,6 +329,7 @@ def delete_scholar_note(
 ):
     try:
         note_service.delete_note(db, scholar_id, note_id)
+        _log_activity(request, db, scholar_id, "note", "Note deleted")
         db.commit()
     except ScholarNotFoundError as e:
         db.rollback()
@@ -338,7 +349,9 @@ def add_grant_review(
 ):
     try:
         grant_service.add_review(db, scholar_id, grant_id, decision, reviewer, comments)
-        _log_activity(db, scholar_id, "grant_review", f"Grant review recorded: {decision}")
+        _log_activity(
+            request, db, scholar_id, "grant_review", f"Grant review recorded: {decision}"
+        )
         db.commit()
     except ValueError as exc:
         db.rollback()

@@ -95,6 +95,9 @@ class ActivityLog(Base):
     )
     category: Mapped[str] = mapped_column(String(50), default="system")
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # Keep the actor as text rather than a foreign key. Audit history must
+    # remain attributable even after a future user account is retired.
+    actor_username: Mapped[str] = mapped_column(String(200), nullable=False, default="legacy")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     scholar: Mapped["Scholar"] = relationship(back_populates="activity_logs")
