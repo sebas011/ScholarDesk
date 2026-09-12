@@ -10,11 +10,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import secrets
+from collections import OrderedDict, deque
+from collections.abc import Callable
+from math import ceil
+from threading import Lock
+from time import monotonic
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.database import app_dir
+from app.core.logging import logger
 
 CREDENTIALS_FILE = app_dir / "auth.txt"
 DEFAULT_USERNAME = "admin"
@@ -24,8 +30,58 @@ PASSWORD_HASH_ITERATIONS = 600_000
 PASSWORD_SALT_BYTES = 16
 PASSWORD_MAX_LENGTH = 128
 USERNAME_MAX_LENGTH = 200
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+FAILED_LOGIN_WINDOW_SECONDS = 60
+MAX_TRACKED_LOGIN_CLIENTS = 1_024
 
 security = HTTPBasic()
+
+
+class FailedLoginRateLimiter:
+    """Thread-safe, bounded failed-login limiter keyed by the client address."""
+
+    def __init__(
+        self,
+        max_attempts: int = MAX_FAILED_LOGIN_ATTEMPTS,
+        window_seconds: int = FAILED_LOGIN_WINDOW_SECONDS,
+        max_clients: int = MAX_TRACKED_LOGIN_CLIENTS,
+        clock: Callable[[], float] = monotonic,
+    ) -> None:
+        self._max_attempts = max_attempts
+        self._window_seconds = window_seconds
+        self._max_clients = max_clients
+        self._clock = clock
+        self._attempts_by_client: OrderedDict[str, deque[float]] = OrderedDict()
+        self._lock = Lock()
+
+    def register_attempt(self, client_address: str) -> int | None:
+        """Record an attempt or return seconds until this client may retry."""
+        now = self._clock()
+        with self._lock:
+            attempts = self._attempts_by_client.get(client_address)
+            if attempts is None:
+                if len(self._attempts_by_client) >= self._max_clients:
+                    self._attempts_by_client.pop(next(iter(self._attempts_by_client)))
+                attempts = deque()
+                self._attempts_by_client[client_address] = attempts
+
+            while attempts and attempts[0] <= now - self._window_seconds:
+                attempts.popleft()
+
+            if len(attempts) >= self._max_attempts:
+                return max(1, ceil(self._window_seconds - (now - attempts[0])))
+
+            attempts.append(now)
+            self._attempts_by_client.move_to_end(client_address)
+            return None
+
+    def clear(self, client_address: str) -> None:
+        """Clear a client's failed attempts after a successful login."""
+        with self._lock:
+            self._attempts_by_client.pop(client_address, None)
+
+
+failed_login_limiter = FailedLoginRateLimiter()
 
 
 def _ensure_credentials_file() -> None:
@@ -151,12 +207,25 @@ def using_default_password() -> bool:
     return not username or not credential or not is_hashed
 
 
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+def verify_credentials(
+    request: Request,
+    credentials: HTTPBasicCredentials = Depends(security),
+) -> str:
     correct_username, stored_credential, is_hashed = _load_auth_record()
     if not correct_username or not is_hashed or not _is_supported_password_hash(stored_credential):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication is not configured. Reset credentials with ScholarDeskAdmin.",
+        )
+
+    client_address = request.client.host if request.client is not None else "unknown"
+    retry_after = failed_login_limiter.register_attempt(client_address)
+    if retry_after is not None:
+        logger.warning("Authentication rate limit reached.")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
         )
 
     is_valid_username = secrets.compare_digest(credentials.username, correct_username)
@@ -167,4 +236,5 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)) ->
             detail="Incorrect username or password.",
             headers={"WWW-Authenticate": "Basic"},
         )
+    failed_login_limiter.clear(client_address)
     return credentials.username

@@ -101,6 +101,18 @@ def override_verify_credentials():
 app.dependency_overrides[verify_credentials] = override_verify_credentials
 
 
+def _authentication_request(client_address: str = "127.0.0.1") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [],
+            "client": (client_address, 12345),
+        }
+    )
+
+
 @pytest.fixture
 def db_session():
     db = TestSession()
@@ -637,7 +649,7 @@ def test_auth_rejects_non_hashed_or_malformed_credentials(tmp_path, monkeypatch,
     credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
 
     with pytest.raises(HTTPException) as error:
-        auth.verify_credentials(credentials)
+        auth.verify_credentials(_authentication_request(), credentials)
 
     assert error.value.status_code == 503
     assert "Reset credentials with ScholarDeskAdmin" in str(error.value.detail)
@@ -650,7 +662,7 @@ def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
 
     credentials = HTTPBasicCredentials(username="test-user", password="test-pass")
 
-    assert auth.verify_credentials(credentials) == "test-user"
+    assert auth.verify_credentials(_authentication_request(), credentials) == "test-user"
 
 
 @pytest.mark.parametrize(
@@ -668,10 +680,51 @@ def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, passw
     credentials = HTTPBasicCredentials(username=username, password=password)
 
     with pytest.raises(HTTPException) as error:
-        auth.verify_credentials(credentials)
+        auth.verify_credentials(_authentication_request(), credentials)
 
     assert error.value.status_code == 401
     assert error.value.headers == {"WWW-Authenticate": "Basic"}
+
+
+def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path, monkeypatch):
+    now = [0.0]
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    monkeypatch.setattr(auth, "verify_password", lambda password, _: password == "correct")
+    monkeypatch.setattr(
+        auth,
+        "failed_login_limiter",
+        auth.FailedLoginRateLimiter(clock=lambda: now[0]),
+    )
+    auth.set_hashed_credentials("test-user", "correct")
+    request = _authentication_request("192.0.2.10")
+    wrong_credentials = HTTPBasicCredentials(username="test-user", password="wrong")
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS - 1):
+        with pytest.raises(HTTPException) as error:
+            auth.verify_credentials(request, wrong_credentials)
+        assert error.value.status_code == 401
+
+    assert auth.verify_credentials(
+        request, HTTPBasicCredentials(username="test-user", password="correct")
+    ) == "test-user"
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+        with pytest.raises(HTTPException) as error:
+            auth.verify_credentials(request, wrong_credentials)
+        assert error.value.status_code == 401
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, wrong_credentials)
+
+    assert error.value.status_code == 429
+    assert error.value.headers == {"Retry-After": "60"}
+
+    now[0] = float(auth.FAILED_LOGIN_WINDOW_SECONDS)
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, wrong_credentials)
+
+    assert error.value.status_code == 401
 
 
 def test_auth_creates_fail_closed_credentials_setup_file(tmp_path, monkeypatch):
@@ -688,7 +741,9 @@ def test_auth_creates_fail_closed_credentials_setup_file(tmp_path, monkeypatch):
     assert auth.using_default_password() is True
 
     with pytest.raises(HTTPException) as error:
-        auth.verify_credentials(HTTPBasicCredentials(username="admin", password="anything"))
+        auth.verify_credentials(
+            _authentication_request(), HTTPBasicCredentials(username="admin", password="anything")
+        )
 
     assert error.value.status_code == 503
 
@@ -703,6 +758,7 @@ def test_hashed_credentials_are_verified_without_storing_the_password(tmp_path, 
     assert "password_hash=pbkdf2_sha256$600000$" in contents
     assert "correct horse battery staple" not in contents
     assert auth.verify_credentials(
+        _authentication_request(),
         HTTPBasicCredentials(username="test-user", password="correct horse battery staple")
     ) == "test-user"
 
@@ -714,6 +770,7 @@ def test_hashed_credentials_reject_an_invalid_password(tmp_path, monkeypatch):
 
     with pytest.raises(HTTPException) as error:
         auth.verify_credentials(
+            _authentication_request(),
             HTTPBasicCredentials(username="test-user", password="wrong password")
         )
 
