@@ -15,11 +15,16 @@ def test_ci_builds_and_preserves_the_windows_portable_release_artifact():
     workflow = Path(".github/workflows/tests.yml").read_text(encoding="utf-8")
 
     assert "permissions:\n  contents: read" in workflow
+    assert "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5" in workflow
+    assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7" in workflow
+    assert "uses: actions/checkout@v" not in workflow
+    assert "uses: actions/setup-python@v" not in workflow
+    assert "uses: actions/upload-artifact@v" not in workflow
     assert "portable-build:" in workflow
     assert "runs-on: windows-latest" in workflow
     assert "python -m venv .venv" in workflow
     assert "cmd /c build.bat" in workflow
-    assert "actions/upload-artifact@v7" in workflow
     assert "dist/ScholarDesk.exe" in workflow
     assert "dist/ScholarDeskAdmin.exe" in workflow
     assert "dist/SHA256SUMS.txt" in workflow
