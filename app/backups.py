@@ -14,6 +14,7 @@ class DatabaseBackupError(RuntimeError):
 
 
 DatabaseSignature = tuple[tuple[tuple[str, str], ...], tuple[tuple[str, int], ...]]
+MAX_BACKUP_PATH_RESERVATION_ATTEMPTS = 100
 
 
 def _verify_backup_integrity(backup_path: Path) -> None:
@@ -56,6 +57,21 @@ def _database_signature(database_path: Path) -> DatabaseSignature:
     return objects, table_counts
 
 
+def _reserve_backup_path(source_path: Path, destination_directory: Path) -> Path:
+    """Create an empty backup file exclusively, never replacing an existing backup."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    for sequence in range(MAX_BACKUP_PATH_RESERVATION_ATTEMPTS):
+        suffix = "" if sequence == 0 else f"-{sequence}"
+        backup_path = destination_directory / f"{source_path.stem}.backup-{timestamp}{suffix}.db"
+        try:
+            with backup_path.open("xb"):
+                pass
+        except FileExistsError:
+            continue
+        return backup_path
+    raise DatabaseBackupError("Could not reserve a unique backup file name.")
+
+
 def backup_database(database_path: Path, backup_directory: Path) -> Path:
     """Create a timestamped, transactionally consistent SQLite backup.
 
@@ -70,18 +86,19 @@ def backup_database(database_path: Path, backup_directory: Path) -> Path:
     if not source_path.is_file():
         raise DatabaseBackupError(f"Database not found: {source_path}")
 
-    destination_directory.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    backup_path = destination_directory / f"{source_path.stem}.backup-{timestamp}.db"
+    backup_path: Path | None = None
 
     try:
+        destination_directory.mkdir(parents=True, exist_ok=True)
+        backup_path = _reserve_backup_path(source_path, destination_directory)
         source_uri = f"file:{source_path.as_posix()}?mode=ro"
         with closing(sqlite3.connect(source_uri, uri=True, timeout=5)) as source_connection:
             with closing(sqlite3.connect(backup_path)) as backup_connection:
                 source_connection.backup(backup_connection)
         _verify_backup_integrity(backup_path)
-    except sqlite3.Error as error:
-        backup_path.unlink(missing_ok=True)
+    except (OSError, sqlite3.Error) as error:
+        if backup_path is not None:
+            backup_path.unlink(missing_ok=True)
         raise DatabaseBackupError(f"Backup failed: {error}") from error
 
     return backup_path

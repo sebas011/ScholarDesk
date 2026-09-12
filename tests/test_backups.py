@@ -1,5 +1,6 @@
 import sqlite3
 import sys
+from datetime import datetime, timezone
 
 import pytest
 
@@ -52,6 +53,28 @@ def test_backup_database_removes_output_after_integrity_check_failure(tmp_path, 
         backup_database(database_path, backup_directory)
 
     assert list(backup_directory.glob("*.db")) == []
+
+
+def test_backup_database_does_not_overwrite_timestamp_collision(tmp_path, monkeypatch):
+    database_path = tmp_path / "grants.db"
+    backup_directory = tmp_path / "backups"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE scholars (id INTEGER PRIMARY KEY)")
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, _timezone):
+            return datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    monkeypatch.setattr("app.backups.datetime", FixedDateTime)
+    backup_directory.mkdir()
+    existing_backup = backup_directory / "grants.backup-20260101T000000000000Z.db"
+    existing_backup.write_bytes(b"never overwrite an existing backup")
+
+    backup_path = backup_database(database_path, backup_directory)
+
+    assert existing_backup.read_bytes() == b"never overwrite an existing backup"
+    assert backup_path.name == "grants.backup-20260101T000000000000Z-1.db"
 
 
 def test_backup_restore_drill_preserves_schema_and_data(tmp_path):
