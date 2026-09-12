@@ -952,6 +952,13 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
         auth.MAX_FAILED_LOGIN_ATTEMPTS
     )
 
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(
+            request, HTTPBasicCredentials(username="test-user", password="correct-pass")
+        )
+    assert error.value.status_code == 429
+
+    now[0] = float(auth.FAILED_LOGIN_WINDOW_SECONDS)
     assert auth.verify_credentials(
         request, HTTPBasicCredentials(username="test-user", password="correct-pass")
     ) == "test-user"
@@ -969,11 +976,41 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
         auth.verify_credentials(request, wrong_credentials)
     assert error.value.status_code == 429
 
-    now[0] = float(auth.FAILED_LOGIN_WINDOW_SECONDS)
+    now[0] += float(auth.FAILED_LOGIN_WINDOW_SECONDS)
     with pytest.raises(HTTPException) as error:
         auth.verify_credentials(request, wrong_credentials)
 
     assert error.value.status_code == 401
+
+
+def test_auth_rate_limit_blocks_before_password_verification(tmp_path, monkeypatch):
+    now = [0.0]
+    password_checks = []
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    monkeypatch.setattr(
+        auth,
+        "failed_login_limiter",
+        auth.FailedLoginRateLimiter(clock=lambda: now[0]),
+    )
+    monkeypatch.setattr(
+        auth,
+        "verify_password",
+        lambda password, _: password_checks.append(password) or False,
+    )
+    auth.set_hashed_credentials("test-user", "correct-pass")
+    request = _authentication_request("192.0.2.11")
+    credentials = HTTPBasicCredentials(username="test-user", password="wrong")
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+        with pytest.raises(HTTPException):
+            auth.verify_credentials(request, credentials)
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, credentials)
+
+    assert error.value.status_code == 429
+    assert password_checks == ["wrong"] * auth.MAX_FAILED_LOGIN_ATTEMPTS
 
 
 def test_hashed_credentials_reject_a_password_shorter_than_the_minimum(tmp_path, monkeypatch):

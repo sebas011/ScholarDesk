@@ -61,6 +61,27 @@ class FailedLoginRateLimiter:
         self._attempts_by_client: OrderedDict[str, deque[float]] = OrderedDict()
         self._lock = Lock()
 
+    def _retry_after(self, attempts: deque[float], now: float) -> int | None:
+        while attempts and attempts[0] <= now - self._window_seconds:
+            attempts.popleft()
+        if len(attempts) < self._max_attempts:
+            return None
+        return max(1, ceil(self._window_seconds - (now - attempts[0])))
+
+    def retry_after(self, client_address: str) -> int | None:
+        """Return a current block period without recording a new attempt."""
+        now = self._clock()
+        with self._lock:
+            attempts = self._attempts_by_client.get(client_address)
+            if attempts is None:
+                return None
+            retry_after = self._retry_after(attempts, now)
+            if attempts:
+                self._attempts_by_client.move_to_end(client_address)
+            else:
+                self._attempts_by_client.pop(client_address, None)
+            return retry_after
+
     def register_attempt(self, client_address: str) -> int | None:
         """Record an attempt or return seconds until this client may retry."""
         now = self._clock()
@@ -72,17 +93,13 @@ class FailedLoginRateLimiter:
                 attempts = deque()
                 self._attempts_by_client[client_address] = attempts
 
-            while attempts and attempts[0] <= now - self._window_seconds:
-                attempts.popleft()
-
-            if len(attempts) >= self._max_attempts:
-                return max(1, ceil(self._window_seconds - (now - attempts[0])))
+            retry_after = self._retry_after(attempts, now)
+            if retry_after is not None:
+                return retry_after
 
             attempts.append(now)
             self._attempts_by_client.move_to_end(client_address)
-            if len(attempts) >= self._max_attempts:
-                return max(1, ceil(self._window_seconds - (now - attempts[0])))
-            return None
+            return self._retry_after(attempts, now)
 
     def clear(self, client_address: str) -> None:
         """Clear a client's failed attempts after a successful login."""
@@ -342,6 +359,15 @@ def verify_credentials(
         )
 
     client_address = request.client.host if request.client is not None else "unknown"
+    retry_after = failed_login_limiter.retry_after(client_address)
+    if retry_after is not None:
+        logger.warning("Authentication rate limit reached.")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     if not stored_credential or not verify_password(credentials.password, stored_credential):
         retry_after = failed_login_limiter.register_attempt(client_address)
         if retry_after is not None:
