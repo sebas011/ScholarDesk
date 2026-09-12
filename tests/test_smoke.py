@@ -911,6 +911,27 @@ def test_auth_rejects_invalid_credentials(tmp_path, monkeypatch, username, passw
     assert error.value.headers == {"WWW-Authenticate": "Basic"}
 
 
+def test_auth_verifies_unknown_user_against_dummy_hash(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("test-user", "correct horse battery staple")
+    checked_hashes: list[str] = []
+    monkeypatch.setattr(
+        auth,
+        "verify_password",
+        lambda _password, stored_hash: checked_hashes.append(stored_hash) or False,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(
+            _authentication_request("198.51.100.50"),
+            HTTPBasicCredentials(username="unknown-user", password="wrong-password"),
+        )
+
+    assert error.value.status_code == 401
+    assert checked_hashes == [auth.DUMMY_PASSWORD_HASH]
+
+
 def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path, monkeypatch):
     now = [0.0]
     credentials_file = tmp_path / "auth.txt"

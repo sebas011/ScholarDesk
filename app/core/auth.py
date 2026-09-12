@@ -37,6 +37,12 @@ PASSWORD_SALT_BYTES = 16
 PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
 USERNAME_MAX_LENGTH = 200
+# Used only to make unknown-user attempts perform the same PBKDF2 work as
+# incorrect-password attempts. It is not an account credential.
+DUMMY_PASSWORD_HASH = (
+    "pbkdf2_sha256$600000$DWHTXQv0vA8OlA5z-srD8w==$"
+    "NAa6CYLnIicHiANh7q7U1wUjWf4_C14VBtiybM3aQnU="
+)
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 FAILED_LOGIN_WINDOW_SECONDS = 60
 MAX_TRACKED_LOGIN_CLIENTS = 1_024
@@ -351,7 +357,6 @@ def verify_credentials(
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> str:
     users = load_users()
-    stored_credential = users.get(credentials.username, "")
     if not users:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -368,7 +373,12 @@ def verify_credentials(
             headers={"Retry-After": str(retry_after)},
         )
 
-    if not stored_credential or not verify_password(credentials.password, stored_credential):
+    stored_credential = users.get(credentials.username)
+    password_is_valid = verify_password(
+        credentials.password,
+        stored_credential or DUMMY_PASSWORD_HASH,
+    )
+    if stored_credential is None or not password_is_valid:
         retry_after = failed_login_limiter.register_attempt(client_address)
         if retry_after is not None:
             logger.warning("Authentication rate limit reached.")
