@@ -293,3 +293,103 @@ def test_version_three_database_receives_actor_attribution_column(tmp_path):
         assert len(list(backup_directory.glob("version-three.backup-*.db"))) == 1
     finally:
         engine.dispose()
+
+
+def test_version_four_database_rebuilds_scholar_related_foreign_keys_with_cascade(tmp_path):
+    database_path = tmp_path / "version-four.db"
+    backup_directory = tmp_path / "backups"
+    _create_legacy_v1_database(database_path)
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO scholars (id, name, missing_requirements) "
+                    "VALUES (1, 'Cascade Scholar', 0)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO department_assignments (scholar_id, department) "
+                    "VALUES (1, 'CCS')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO grants (id, scholar_id, program_applied, status) "
+                    "VALUES (1, 1, 'Cascade Grant', 'Active')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO grant_reviews (grant_id, decision, created_at) "
+                    "VALUES (1, 'approved', CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO scholar_notes (scholar_id, content, created_at) "
+                    "VALUES (1, 'Cascade note', CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO activity_logs "
+                    "(scholar_id, category, description, actor_username, created_at) "
+                    "VALUES (1, 'scholar', 'Cascade activity', 'admin', CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE schema_migrations ("
+                    "version INTEGER NOT NULL PRIMARY KEY, "
+                    "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
+            for version in (BASELINE_SCHEMA_VERSION, 2, 3, 4):
+                connection.execute(
+                    text("INSERT INTO schema_migrations (version) VALUES (:version)"),
+                    {"version": version},
+                )
+
+        assert ensure_schema_version(
+            engine,
+            database_was_empty=False,
+            backup_directory=backup_directory,
+        ) == CURRENT_SCHEMA_VERSION
+        with engine.begin() as connection:
+            delete_actions = {
+                (table_name, row[3]): row[6]
+                for table_name in (
+                    "department_assignments",
+                    "grants",
+                    "scholar_notes",
+                    "activity_logs",
+                )
+                for row in connection.execute(text(f"PRAGMA foreign_key_list({table_name})"))
+            }
+            assert all(
+                delete_actions[(table_name, "scholar_id")] == "CASCADE"
+                for table_name in (
+                    "department_assignments",
+                    "grants",
+                    "scholar_notes",
+                    "activity_logs",
+                )
+            )
+            connection.execute(text("DELETE FROM scholars WHERE id = 1"))
+            for table_name in (
+                "department_assignments",
+                "grants",
+                "grant_reviews",
+                "scholar_notes",
+                "activity_logs",
+            ):
+                assert connection.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name}")
+                ).scalar_one() == 0
+
+        assert get_schema_version(engine) == CURRENT_SCHEMA_VERSION
+        assert len(list(backup_directory.glob("version-four.backup-*.db"))) == 1
+    finally:
+        engine.dispose()

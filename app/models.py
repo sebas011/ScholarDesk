@@ -29,14 +29,8 @@ class Scholar(Base):
     grants: Mapped[list["Grant"]] = relationship(
         back_populates="scholar", cascade="all, delete-orphan", order_by="Grant.id"
     )
-    # No cascade here on purpose. ActivityLog is meant to survive a
-    # scholar's deletion as an audit trail (the FK below already uses
-    # ondelete="SET NULL" for exactly this reason) - "all, delete-orphan"
-    # would make SQLAlchemy delete these rows itself before the database's
-    # SET NULL constraint ever gets a chance to run, silently destroying
-    # the audit history the whole table exists to preserve.
     activity_logs: Mapped[list["ActivityLog"]] = relationship(
-        back_populates="scholar", order_by="ActivityLog.id.desc()"
+        back_populates="scholar", cascade="all, delete-orphan", order_by="ActivityLog.id.desc()"
     )
     notes: Mapped[list["ScholarNote"]] = relationship(
         back_populates="scholar", cascade="all, delete-orphan", order_by="ScholarNote.id.desc()"
@@ -48,7 +42,7 @@ class DepartmentAssignment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
     )
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     rank: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -67,7 +61,7 @@ class Grant(Base):
     __tablename__ = "grants"
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
     )
     program_applied: Mapped[str] = mapped_column(String(300), nullable=False)
     type_of_grant: Mapped[str | None] = mapped_column(String(150), nullable=True)
@@ -91,7 +85,7 @@ class ActivityLog(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int | None] = mapped_column(
-        ForeignKey("scholars.id", ondelete="SET NULL"), index=True, nullable=True
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True, nullable=True
     )
     category: Mapped[str] = mapped_column(String(50), default="system")
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -108,7 +102,7 @@ class ScholarNote(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scholar_id: Mapped[int] = mapped_column(
-        ForeignKey("scholars.id", ondelete="SET NULL"), index=True
+        ForeignKey("scholars.id", ondelete="CASCADE"), index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())

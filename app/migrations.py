@@ -16,7 +16,7 @@ from app.backups import DatabaseBackupError, backup_database
 from app.core.logging import logger
 
 BASELINE_SCHEMA_VERSION = 1
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 MIGRATION_TABLE = "schema_migrations"
 ForeignKeyDefinition = tuple[str, str, str, str]
 ACTIVITY_LOG_INDEX_SQL = (
@@ -26,6 +26,55 @@ ACTIVITY_LOG_INDEX_SQL = (
 ACTIVITY_LOG_ACTOR_COLUMN_SQL = (
     "ALTER TABLE activity_logs "
     "ADD COLUMN actor_username VARCHAR(200) NOT NULL DEFAULT 'legacy'"
+)
+CASCADE_DELETE_REBUILD_SQL = (
+    "CREATE TABLE department_assignments_v5 ("
+    "id INTEGER NOT NULL PRIMARY KEY, scholar_id INTEGER NOT NULL, "
+    "department VARCHAR(100) NOT NULL, rank VARCHAR(100), tenure VARCHAR(100), "
+    "date_started DATE, date_ended DATE, "
+    "FOREIGN KEY(scholar_id) REFERENCES scholars(id) ON DELETE CASCADE)",
+    "INSERT INTO department_assignments_v5 "
+    "SELECT id, scholar_id, department, rank, tenure, date_started, date_ended "
+    "FROM department_assignments",
+    "DROP TABLE department_assignments",
+    "ALTER TABLE department_assignments_v5 RENAME TO department_assignments",
+    "CREATE INDEX ix_department_assignments_scholar_id "
+    "ON department_assignments (scholar_id)",
+    "CREATE INDEX ix_department_assignments_date_started "
+    "ON department_assignments (date_started)",
+    "CREATE INDEX ix_department_assignments_date_ended "
+    "ON department_assignments (date_ended)",
+    "CREATE TABLE grants_v5 ("
+    "id INTEGER NOT NULL PRIMARY KEY, scholar_id INTEGER NOT NULL, "
+    "program_applied VARCHAR(300) NOT NULL, type_of_grant VARCHAR(150), "
+    "delivering_hei VARCHAR(200), date_started VARCHAR(100), date_ended VARCHAR(100), "
+    "start_year INTEGER, end_year INTEGER, extension VARCHAR(200), "
+    "status VARCHAR(50) NOT NULL, remarks TEXT, "
+    "FOREIGN KEY(scholar_id) REFERENCES scholars(id) ON DELETE CASCADE)",
+    "INSERT INTO grants_v5 "
+    "SELECT id, scholar_id, program_applied, type_of_grant, delivering_hei, "
+    "date_started, date_ended, start_year, end_year, extension, status, remarks FROM grants",
+    "DROP TABLE grants",
+    "ALTER TABLE grants_v5 RENAME TO grants",
+    "CREATE INDEX ix_grants_scholar_id ON grants (scholar_id)",
+    "CREATE INDEX ix_grants_start_year ON grants (start_year)",
+    "CREATE INDEX ix_grants_end_year ON grants (end_year)",
+    "CREATE TABLE scholar_notes_v5 ("
+    "id INTEGER NOT NULL PRIMARY KEY, scholar_id INTEGER NOT NULL, content TEXT NOT NULL, "
+    "created_at DATETIME, FOREIGN KEY(scholar_id) REFERENCES scholars(id) ON DELETE CASCADE)",
+    "INSERT INTO scholar_notes_v5 SELECT id, scholar_id, content, created_at FROM scholar_notes",
+    "DROP TABLE scholar_notes",
+    "ALTER TABLE scholar_notes_v5 RENAME TO scholar_notes",
+    "CREATE INDEX ix_scholar_notes_scholar_id ON scholar_notes (scholar_id)",
+    "CREATE TABLE activity_logs_v5 ("
+    "id INTEGER NOT NULL PRIMARY KEY, scholar_id INTEGER, category VARCHAR(50) NOT NULL, "
+    "description TEXT NOT NULL, actor_username VARCHAR(200) NOT NULL, created_at DATETIME, "
+    "FOREIGN KEY(scholar_id) REFERENCES scholars(id) ON DELETE CASCADE)",
+    "INSERT INTO activity_logs_v5 "
+    "SELECT id, scholar_id, category, description, actor_username, created_at FROM activity_logs",
+    "DROP TABLE activity_logs",
+    "ALTER TABLE activity_logs_v5 RENAME TO activity_logs",
+    "CREATE INDEX ix_activity_logs_scholar_id ON activity_logs (scholar_id)",
 )
 
 
@@ -103,6 +152,29 @@ def _validate_schema_connection(
     missing_foreign_keys = expected_foreign_keys - actual_foreign_keys
     if missing_foreign_keys:
         raise SchemaVersionError("Database is missing required foreign-key constraints.")
+
+    if version >= 5:
+        from app.database import Base
+
+        expected_delete_actions = {
+            (table.name, foreign_key.parent.name): (foreign_key.ondelete or "NO ACTION").upper()
+            for table in Base.metadata.tables.values()
+            for foreign_key in table.foreign_keys
+        }
+        actual_delete_actions = {
+            (table_name, row[3]): row[6].upper()
+            for table_name in expected_columns
+            for row in connection.execute(f"PRAGMA foreign_key_list({table_name})")
+        }
+        mismatched_delete_actions = {
+            key: expected_action
+            for key, expected_action in expected_delete_actions.items()
+            if actual_delete_actions.get(key) != expected_action
+        }
+        if mismatched_delete_actions:
+            raise SchemaVersionError(
+                "Database foreign-key delete actions do not match this release."
+            )
 
     quick_check = [row[0] for row in connection.execute("PRAGMA quick_check")]
     if quick_check != ["ok"]:
@@ -188,6 +260,27 @@ def _database_path(engine: Engine) -> Path:
     return Path(database)
 
 
+def _apply_cascade_delete_migration(engine: Engine) -> None:
+    """Rebuild SQLite child tables so scholar deletion is database-enforced cascade."""
+    with engine.connect() as connection:
+        connection.commit()
+        dbapi_connection = connection.connection.driver_connection
+        dbapi_connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            dbapi_connection.execute("BEGIN IMMEDIATE")
+            for statement in CASCADE_DELETE_REBUILD_SQL:
+                dbapi_connection.execute(statement)
+            dbapi_connection.execute(
+                f"INSERT INTO {MIGRATION_TABLE} (version) VALUES (?)", (5,)
+            )
+            dbapi_connection.commit()
+        except Exception:
+            dbapi_connection.rollback()
+            raise
+        finally:
+            dbapi_connection.execute("PRAGMA foreign_keys = ON")
+
+
 def _apply_pending_migrations(engine: Engine, version: int, backup_directory: Path) -> int:
     """Back up and atomically apply every migration after ``version``."""
     database_path = _database_path(engine)
@@ -196,34 +289,37 @@ def _apply_pending_migrations(engine: Engine, version: int, backup_directory: Pa
     except DatabaseBackupError as error:
         raise SchemaVersionError(f"Migration backup failed: {error}") from error
 
-    with engine.begin() as connection:
-        current_version = connection.execute(
-            text(f"SELECT MAX(version) FROM {MIGRATION_TABLE}")
-        ).scalar_one()
-        if current_version != version:
-            raise SchemaVersionError("Database schema version changed during migration.")
+    legacy_target_version = min(CURRENT_SCHEMA_VERSION, 4)
+    if version < legacy_target_version:
+        with engine.begin() as connection:
+            current_version = connection.execute(
+                text(f"SELECT MAX(version) FROM {MIGRATION_TABLE}")
+            ).scalar_one()
+            if current_version != version:
+                raise SchemaVersionError("Database schema version changed during migration.")
 
-        for target_version in range(version + 1, CURRENT_SCHEMA_VERSION + 1):
-            if target_version in (2, 3):
-                # Version 3 repairs a database incorrectly marked as version 2
-                # before the activity-log index was present. The statement is
-                # idempotent, so normal version-2 upgrades remain safe.
-                connection.execute(text(ACTIVITY_LOG_INDEX_SQL))
-            elif target_version == 4:
-                existing_columns = {
-                    row[1]
-                    for row in connection.execute(text("PRAGMA table_info(activity_logs)"))
-                }
-                if "actor_username" not in existing_columns:
-                    connection.execute(text(ACTIVITY_LOG_ACTOR_COLUMN_SQL))
-            else:
-                raise SchemaVersionError(
-                    f"No migration is registered for version {target_version}."
+            for target_version in range(version + 1, legacy_target_version + 1):
+                if target_version in (2, 3):
+                    connection.execute(text(ACTIVITY_LOG_INDEX_SQL))
+                elif target_version == 4:
+                    existing_columns = {
+                        row[1]
+                        for row in connection.execute(text("PRAGMA table_info(activity_logs)"))
+                    }
+                    if "actor_username" not in existing_columns:
+                        connection.execute(text(ACTIVITY_LOG_ACTOR_COLUMN_SQL))
+                else:
+                    raise SchemaVersionError(
+                        f"No migration is registered for version {target_version}."
+                    )
+                connection.execute(
+                    text(f"INSERT INTO {MIGRATION_TABLE} (version) VALUES (:version)"),
+                    {"version": target_version},
                 )
-            connection.execute(
-                text(f"INSERT INTO {MIGRATION_TABLE} (version) VALUES (:version)"),
-                {"version": target_version},
-            )
+        version = legacy_target_version
+
+    if version < 5 <= CURRENT_SCHEMA_VERSION:
+        _apply_cascade_delete_migration(engine)
 
     logger.info(
         "Migrated database schema from version %s to %s; backup created at %s.",

@@ -590,14 +590,6 @@ def update_scholar(
 @router.delete("/scholars/{scholar_id}", response_class=HTMLResponse)
 def delete_scholar(request: Request, scholar_id: int, db: Session = Depends(get_db)):
     try:
-        _log_activity(
-            request,
-            db,
-            scholar_id,
-            "scholar",
-            "Scholar deleted",
-        )
-
         scholar_service.delete_scholar(db, scholar_id)
 
         db.commit()
