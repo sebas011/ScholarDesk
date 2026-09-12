@@ -18,6 +18,7 @@ from app.templates_config import STATIC_DIRECTORY, templates
 from app.core.logging import configure_logging
 from app.core.logging import logger
 from app.core.auth import require_authenticated_session, session_secret
+from app.core.host_control import is_authorized_host_control_request
 
 configure_logging()
 
@@ -74,6 +75,18 @@ def health_check() -> JSONResponse:
         return JSONResponse(status_code=503, content={"status": "unavailable"})
     return JSONResponse(content={"status": "ok"})
 
+
+@app.post("/internal/host-shutdown", include_in_schema=False)
+def request_host_shutdown(request: Request) -> JSONResponse:
+    """Ask the frozen host process to exit after this local response completes."""
+    if not is_authorized_host_control_request(request):
+        raise HTTPException(status_code=404, detail="Not found.")
+    shutdown_callback = getattr(app.state, "host_shutdown_callback", None)
+    if not callable(shutdown_callback):
+        raise HTTPException(status_code=503, detail="Host shutdown is unavailable.")
+    shutdown_callback()
+    return JSONResponse(content={"status": "shutting_down"})
+
 UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 CSRF_COOKIE_NAME = "scholardesk_csrf"
 CSRF_FORM_FIELD = "csrf_token"
@@ -99,7 +112,10 @@ async def apply_security_headers(request: Request, call_next):
     request.state.csrf_token = csrf_token
     request.state.csp_nonce = csp_nonce
 
-    if request.method in UNSAFE_HTTP_METHODS:
+    is_authorized_host_control = is_authorized_host_control_request(request)
+    if request.url.path == "/internal/host-shutdown" and not is_authorized_host_control:
+        response = HTMLResponse(status_code=404)
+    elif request.method in UNSAFE_HTTP_METHODS and not is_authorized_host_control:
         origin = request.headers.get("origin")
         origin_host = urlsplit(origin).netloc.lower() if origin else ""
         request_host = request.headers.get("host", "").lower()

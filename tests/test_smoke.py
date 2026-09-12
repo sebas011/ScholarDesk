@@ -299,6 +299,37 @@ def test_health_check_returns_503_when_core_table_is_missing(client, monkeypatch
     assert response.json() == {"status": "unavailable"}
 
 
+def test_host_shutdown_requires_a_local_process_token(monkeypatch):
+    callback = Mock()
+    monkeypatch.setenv("SCHOLARDESK_HOST_CONTROL_TOKEN", "host-control-test-token")
+    monkeypatch.setattr(app.state, "host_shutdown_callback", callback, raising=False)
+
+    with TestClient(app, client=("127.0.0.1", 50000)) as local_client:
+        response = local_client.post(
+            "/internal/host-shutdown",
+            headers={"X-ScholarDesk-Host-Token": "host-control-test-token"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "shutting_down"}
+    callback.assert_called_once_with()
+
+
+def test_host_shutdown_cannot_be_requested_from_the_lan(monkeypatch):
+    callback = Mock()
+    monkeypatch.setenv("SCHOLARDESK_HOST_CONTROL_TOKEN", "host-control-test-token")
+    monkeypatch.setattr(app.state, "host_shutdown_callback", callback, raising=False)
+
+    with TestClient(app, client=("192.0.2.10", 50000)) as lan_client:
+        response = lan_client.post(
+            "/internal/host-shutdown",
+            headers={"X-ScholarDesk-Host-Token": "host-control-test-token"},
+        )
+
+    assert response.status_code == 404
+    callback.assert_not_called()
+
+
 def test_browser_assets_are_bundled_and_served_locally(client):
     template = Path("app/templates/base.html").read_text(encoding="utf-8")
 

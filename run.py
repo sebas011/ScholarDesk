@@ -9,8 +9,8 @@ import webbrowser
 
 import uvicorn
 
-# CRITICAL: This forces PyInstaller to bundle the entire app package
-import app.main  # noqa: F401
+# CRITICAL: This forces PyInstaller to bundle the entire app package.
+from app.main import app as web_app
 
 
 HEADLESS_SMOKE_TEST_ENVIRONMENT = "SCHOLARDESK_HEADLESS"
@@ -47,6 +47,7 @@ def main():
 
     config = uvicorn.Config("app.main:app", **kwargs)
     server = uvicorn.Server(config)
+    web_app.state.host_shutdown_callback = lambda: setattr(server, "should_exit", True)
 
     if _is_headless_smoke_test():
         server.run()
