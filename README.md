@@ -93,7 +93,9 @@ pytest
 
 ## Known gaps
 
-- Schema changes only ever `CREATE TABLE IF NOT EXISTS` on startup — no migration tool yet. Fine while the schema is still moving; add Alembic before this is considered fully "done"
+- Fresh databases record schema version `1` on startup. Existing databases are never
+  silently baselined; use the administrator command below before applying a future
+  schema migration.
 - HTTP Basic Auth and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
 
 ---
@@ -132,6 +134,20 @@ Copy-Item grants.db "backups\grants-$(Get-Date -Format yyyyMMdd-HHmmss).db"
 
 Keep backups outside the release folder when possible. Never commit `auth.txt`,
 `grants.db`, or backup files to Git.
+
+### Baseline an existing database
+
+After upgrading to the versioned-schema release, stop ScholarDesk and run this
+once from the release folder:
+
+```powershell
+.\ScholarDeskAdmin.exe --baseline-database
+```
+
+Type `BASELINE` only after confirming the app is closed. The command validates
+the required tables, columns, indexes, foreign keys, and SQLite integrity; it
+then saves a timestamped copy in `backups\` before recording schema version `1`.
+If validation fails, it does not create a backup or change the database.
 
 ### Restore
 

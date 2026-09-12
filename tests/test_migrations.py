@@ -1,13 +1,27 @@
+import sqlite3
+
 from sqlalchemy import create_engine, text
 
+from app.database import Base
 from app.migrations import (
     CURRENT_SCHEMA_VERSION,
     MIGRATION_TABLE,
     SchemaVersionError,
+    baseline_legacy_database,
     ensure_schema_version,
     existing_table_names,
     get_schema_version,
 )
+
+
+def _create_legacy_v1_database(database_path):
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        from app import models  # noqa: F401
+
+        Base.metadata.create_all(bind=engine)
+    finally:
+        engine.dispose()
 
 
 def test_new_database_receives_initial_schema_version(tmp_path):
@@ -51,3 +65,36 @@ def test_newer_database_schema_refuses_startup(tmp_path):
             raise AssertionError("Expected a newer schema version to refuse startup.")
     finally:
         engine.dispose()
+
+
+def test_baseline_legacy_database_creates_backup_then_records_version(tmp_path):
+    database_path = tmp_path / "legacy.db"
+    backup_directory = tmp_path / "backups"
+    _create_legacy_v1_database(database_path)
+
+    backup_path = baseline_legacy_database(database_path, backup_directory)
+
+    engine = create_engine(f"sqlite:///{database_path}")
+    backup_engine = create_engine(f"sqlite:///{backup_path}")
+    try:
+        assert backup_path.parent == backup_directory
+        assert get_schema_version(engine) == CURRENT_SCHEMA_VERSION
+        assert MIGRATION_TABLE not in existing_table_names(backup_engine)
+    finally:
+        engine.dispose()
+        backup_engine.dispose()
+
+
+def test_baseline_refuses_unrecognized_database_without_creating_backup(tmp_path):
+    database_path = tmp_path / "invalid.db"
+    backup_directory = tmp_path / "backups"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("CREATE TABLE scholars (id INTEGER PRIMARY KEY)")
+
+    try:
+        baseline_legacy_database(database_path, backup_directory)
+    except SchemaVersionError as error:
+        assert "Missing required tables" in str(error)
+    else:
+        raise AssertionError("Expected an unrecognized database to be refused.")
+    assert not backup_directory.exists()
