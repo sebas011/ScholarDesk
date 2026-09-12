@@ -3409,7 +3409,8 @@ def test_build_script_uses_project_tools_and_preserves_the_previous_release():
     assert 'mkdir "build"' in contents
     assert 'set "PYTHONUSERBASE=%CD%\\build\\python-user-base"' in contents
     assert 'set "VENV_PYTHON=%CD%\\.venv\\Scripts\\python.exe"' in contents
-    assert '"%VENV_RUFF%" check .' in contents
+    assert '"%VENV_RUFF%" check app tests *.py' in contents
+    assert '"%VENV_PYTHON%" -m pip check' in contents
     assert '"%VENV_PYTHON%" -m pytest -v --basetemp ".\\build\\pytest-tmp"' in contents
     assert '"%VENV_PYTHON%" -m PyInstaller ScholarDesk.spec --clean --noconfirm' in contents
     assert '--distpath ".\\build\\release-stage\\dist"' in contents
