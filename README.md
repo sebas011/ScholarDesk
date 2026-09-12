@@ -46,7 +46,7 @@ Do not expose ScholarDesk directly with `http://cathedra.vpaa:8000`.
 
 ## Requirements
 
-- Python 3.11+ (CI uses 3.13)
+- Python 3.11+ for source development and tests; Python 3.13 for the validated portable Windows build
 - Windows if you want the `.exe` build (`build.bat` + PyInstaller)
 
 Install dependencies:

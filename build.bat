@@ -21,6 +21,12 @@ if not exist "%VENV_PYTHON%" (
     goto :error
 )
 
+"%VENV_PYTHON%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 13) else 1)" || (
+    echo Portable builds require a Python 3.13 virtual environment.
+    echo Recreate it with: py -3.13 -m venv .venv
+    goto :error
+)
+
 echo [2/7] Running ruff...
 "%VENV_RUFF%" check app tests *.py || goto :error
 

@@ -3677,6 +3677,8 @@ def test_build_script_uses_project_tools_and_preserves_the_previous_release():
     assert 'mkdir "%BUILD_WORKSPACE%"' in contents
     assert 'set "PYTHONUSERBASE=%BUILD_WORKSPACE%\\python-user-base"' in contents
     assert 'set "VENV_PYTHON=%CD%\\.venv\\Scripts\\python.exe"' in contents
+    assert "Portable builds require a Python 3.13 virtual environment." in contents
+    assert "sys.version_info[:2] == (3, 13)" in contents
     assert '"%VENV_RUFF%" check app tests *.py' in contents
     assert '"%VENV_PYTHON%" -m pip check' in contents
     assert '"%VENV_PYTHON%" -m pytest -v --basetemp "%BUILD_WORKSPACE%\\pytest-tmp"' in contents
