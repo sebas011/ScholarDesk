@@ -12,6 +12,22 @@ datas = [
     (str(root / "app" / "static"), "app/static"),
 ]
 
+# Payroll is deliberately unfinished and is not part of either portable
+# executable. Keep this list in the build specification so an accidental
+# import cannot silently reintroduce it to a release artifact.
+PAYROLL_RELEASE_EXCLUDES = [
+    "app.core.payroll_config",
+    "app.payroll_database",
+    "app.payroll_models",
+    "app.routers.launcher",
+    "app.services.payroll",
+    "app.services.payroll_import",
+    "app.services.payroll_import_service",
+    "app.services.payroll_store",
+    "openpyxl",
+    "pandas",
+]
+
 # If you have a grants.db or other runtime data you want seeded,
 # uncomment and adjust:
 # datas.append((str(root / "grants.db"), "."))
@@ -46,7 +62,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=PAYROLL_RELEASE_EXCLUDES,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -87,18 +103,7 @@ admin_a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        "app.core.payroll_config",
-        "app.payroll_database",
-        "app.payroll_models",
-        "app.routers.launcher",
-        "app.services.payroll",
-        "app.services.payroll_import",
-        "app.services.payroll_import_service",
-        "app.services.payroll_store",
-        "openpyxl",
-        "pandas",
-    ],
+    excludes=PAYROLL_RELEASE_EXCLUDES,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
