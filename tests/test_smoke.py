@@ -3403,14 +3403,20 @@ def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
     assert '(str(root / "app" / "static"), "app/static")' in contents
 
 
-def test_build_script_uses_project_tools_and_an_isolated_user_site():
+def test_build_script_uses_project_tools_and_preserves_the_previous_release():
     contents = Path("build.bat").read_text(encoding="utf-8")
 
+    assert 'mkdir "build"' in contents
     assert 'set "PYTHONUSERBASE=%CD%\\build\\python-user-base"' in contents
     assert 'set "VENV_PYTHON=%CD%\\.venv\\Scripts\\python.exe"' in contents
     assert '"%VENV_RUFF%" check .' in contents
     assert '"%VENV_PYTHON%" -m pytest -v --basetemp ".\\build\\pytest-tmp"' in contents
-    assert '"%VENV_PYINSTALLER%" ScholarDesk.spec --clean --noconfirm' in contents
+    assert '"%VENV_PYTHON%" -m PyInstaller ScholarDesk.spec --clean --noconfirm' in contents
+    assert '--distpath ".\\build\\release-stage\\dist"' in contents
+    assert 'if exist "dist" move "dist" "build\\previous-dist" || goto :error' in contents
+    assert 'move "build\\release-stage\\dist" "dist" || goto :restore_previous_release' in contents
+    assert ':restore_previous_release' in contents
+    assert 'if exist "dist" rmdir /s /q "dist"' not in contents
 
 
 def test_security_headers_protect_html_and_csv_responses(client):

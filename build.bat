@@ -4,14 +4,20 @@ echo.
 
 cd /d "%~dp0"
 
-echo [1/4] Cleaning old builds...
-if exist "dist" rmdir /s /q "dist"
+echo [1/5] Preparing isolated build workspace...
 if exist "build" rmdir /s /q "build"
+if exist "build" (
+    echo Could not clean the build workspace. Close any process using it and try again.
+    goto :error
+)
+mkdir "build" || (
+    echo Could not create the build workspace.
+    goto :error
+)
 
 set "PYTHONUSERBASE=%CD%\build\python-user-base"
 set "VENV_PYTHON=%CD%\.venv\Scripts\python.exe"
 set "VENV_RUFF=%CD%\.venv\Scripts\ruff.exe"
-set "VENV_PYINSTALLER=%CD%\.venv\Scripts\pyinstaller.exe"
 
 if not exist "%VENV_PYTHON%" (
     echo Virtual environment not found: %VENV_PYTHON%
@@ -19,14 +25,22 @@ if not exist "%VENV_PYTHON%" (
     goto :error
 )
 
-echo [2/4] Running ruff...
+echo [2/5] Running ruff...
 "%VENV_RUFF%" check . || goto :error
 
-echo [3/4] Running tests...
+echo [3/5] Running tests...
 "%VENV_PYTHON%" -m pytest -v --basetemp ".\build\pytest-tmp" || goto :error
 
-echo [4/4] Building PyInstaller executable...
-"%VENV_PYINSTALLER%" ScholarDesk.spec --clean --noconfirm || goto :error
+echo [4/5] Building staged PyInstaller executables...
+"%VENV_PYTHON%" -m PyInstaller ScholarDesk.spec --clean --noconfirm ^
+    --distpath ".\build\release-stage\dist" ^
+    --workpath ".\build\pyinstaller-work" || goto :error
+
+echo [5/5] Publishing the staged release...
+if exist "build\previous-dist" rmdir /s /q "build\previous-dist"
+if exist "dist" move "dist" "build\previous-dist" || goto :error
+move "build\release-stage\dist" "dist" || goto :restore_previous_release
+if exist "build\previous-dist" rmdir /s /q "build\previous-dist"
 
 echo.
 echo === BUILD SUCCESS ===
@@ -37,3 +51,9 @@ goto :eof
 echo.
 echo === BUILD FAILED ===
 exit /b 1
+
+:restore_previous_release
+echo.
+echo Publish failed. Restoring the previous release...
+if exist "build\previous-dist" move "build\previous-dist" "dist"
+goto :error
