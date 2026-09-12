@@ -1299,6 +1299,30 @@ def test_frozen_headless_smoke_mode_starts_no_browser(monkeypatch):
     timer.assert_not_called()
 
 
+def test_frozen_release_opens_the_windows_default_browser(monkeypatch):
+    server = Mock()
+    browser = Mock()
+
+    class ImmediateTimer:
+        def __init__(self, _delay, callback):
+            callback()
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr(application_runner.sys, "frozen", True, raising=False)
+    monkeypatch.delenv(application_runner.HEADLESS_SMOKE_TEST_ENVIRONMENT, raising=False)
+    monkeypatch.setattr(application_runner.uvicorn, "Config", Mock())
+    monkeypatch.setattr(application_runner.uvicorn, "Server", Mock(return_value=server))
+    monkeypatch.setattr(application_runner.threading, "Timer", ImmediateTimer)
+    monkeypatch.setattr(application_runner.webbrowser, "open", browser)
+
+    application_runner.main()
+
+    browser.assert_called_once_with("http://127.0.0.1:8000", new=1)
+    server.run.assert_called_once_with()
+
+
 def test_cathedra_caddyfile_uses_tls_and_loopback_upstream():
     caddyfile = (
         Path(__file__).resolve().parent.parent / "deployment" / "Caddyfile.cathedra.vpaa"

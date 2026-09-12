@@ -4,10 +4,9 @@ Entry point for both development and PyInstaller builds.
 
 import os
 import sys
-import shutil
-import subprocess
-import tempfile
 import threading
+import webbrowser
+
 import uvicorn
 
 # CRITICAL: This forces PyInstaller to bundle the entire app package
@@ -46,7 +45,6 @@ def main():
         uvicorn.run("app.main:app", **kwargs)
         return
 
-    profile_dir = tempfile.mkdtemp(prefix="scholardesk-edge-")
     config = uvicorn.Config("app.main:app", **kwargs)
     server = uvicorn.Server(config)
 
@@ -54,38 +52,11 @@ def main():
         server.run()
         return
 
-    def launch_and_monitor_browser():
-        import os
-        import webbrowser
-        edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-
-        if not os.path.exists(edge):
-            # Edge isn't at the expected path on this machine - fall back
-            # to whatever the user's actual default browser is, same as
-            # the original (non-auto-shutdown) behavior. No window to
-            # monitor in this case, so should_exit is never set here;
-            # the person closes the app the normal way (Ctrl+C, Task
-            # Manager, etc.) same as any other background server.
-            webbrowser.open(url)
-            shutil.rmtree(profile_dir, ignore_errors=True)
-            return
-
-        try:
-            browser = subprocess.Popen(
-                [
-                    edge,
-                    f"--user-data-dir={profile_dir}",
-                    "--no-first-run",
-                    "--no-default-browser-check",
-                    f"--app={url}",
-                ]
-            )
-            browser.wait()
-            server.should_exit = True
-        finally:
-            shutil.rmtree(profile_dir, ignore_errors=True)
-
-    threading.Timer(1.5, launch_and_monitor_browser).start()
+    # ``webbrowser`` delegates to Windows' configured default browser. Unlike
+    # a dedicated Edge app window, there is no portable way to monitor a
+    # browser tab's lifetime, so the server remains available until the user
+    # closes ScholarDesk itself.
+    threading.Timer(1.5, lambda: webbrowser.open(url, new=1)).start()
     server.run()
 
 
