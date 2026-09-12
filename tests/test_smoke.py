@@ -1067,6 +1067,16 @@ def test_hashed_credentials_reject_a_password_shorter_than_the_minimum(tmp_path,
     assert not credentials_file.exists()
 
 
+def test_hashed_credentials_reject_a_whitespace_only_password(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+
+    with pytest.raises(ValueError, match="Password cannot contain only whitespace."):
+        auth.set_hashed_credentials("test-user", " " * auth.PASSWORD_MIN_LENGTH)
+
+    assert not credentials_file.exists()
+
+
 def test_auth_creates_fail_closed_credentials_setup_file(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)

@@ -161,6 +161,8 @@ def _validate_username(username: str) -> str:
 def _validate_password(password: str) -> str:
     if not password:
         raise ValueError("Password is required.")
+    if password.isspace():
+        raise ValueError("Password cannot contain only whitespace.")
     if len(password) < PASSWORD_MIN_LENGTH:
         raise ValueError(f"Password must be at least {PASSWORD_MIN_LENGTH} characters long.")
     if len(password) > PASSWORD_MAX_LENGTH:
