@@ -11,6 +11,7 @@ from app.core.auth import DEFAULT_USERNAME, list_usernames, remove_user, set_use
 from app.backups import DatabaseBackupError, backup_database, run_backup_restore_drill
 from app.database import app_dir
 from app.migrations import SchemaVersionError, baseline_legacy_database
+from app.release_permissions import ReleasePermissionError, check_release_directory_permissions
 
 
 def _set_password() -> None:
@@ -81,6 +82,15 @@ def _verify_backup_restore(database_path: Path) -> None:
     print(f"Backup restore drill passed. Verified backup: {backup_path}")
 
 
+def _check_release_permissions(release_directory: Path) -> None:
+    """Verify the release folder is not exposed to broad local Windows groups."""
+    try:
+        check_release_directory_permissions(release_directory)
+    except ReleasePermissionError as error:
+        raise SystemExit(f"Release permission check failed: {error}") from error
+    print(f"Release permission check passed: {release_directory.resolve()}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ScholarDesk local administrator utility.")
     action = parser.add_mutually_exclusive_group()
@@ -109,11 +119,22 @@ def main() -> None:
         metavar="USERNAME",
         help="permanently revoke one local administrator after confirmation",
     )
+    action.add_argument(
+        "--check-release-permissions",
+        action="store_true",
+        help="verify the release folder is not accessible to broad local Windows groups",
+    )
     parser.add_argument(
         "--database",
         type=Path,
         default=app_dir / "grants.db",
         help="database to baseline; defaults to grants.db beside this utility",
+    )
+    parser.add_argument(
+        "--release-directory",
+        type=Path,
+        default=app_dir,
+        help="release folder to inspect; defaults to the folder containing this utility",
     )
     arguments = parser.parse_args()
     if arguments.baseline_database:
@@ -130,6 +151,9 @@ def main() -> None:
         return
     if arguments.remove_user:
         _remove_user(arguments.remove_user)
+        return
+    if arguments.check_release_permissions:
+        _check_release_permissions(arguments.release_directory)
         return
     _set_password()
 

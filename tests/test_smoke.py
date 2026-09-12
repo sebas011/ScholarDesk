@@ -33,6 +33,7 @@ from app.services import departments as dept_service
 from app.services import notes as note_service
 from app.services import stats as stats_service
 import app.main as main
+from app import release_permissions
 from app.main import app
 from unittest.mock import MagicMock, Mock
 from app.database import Base, get_db
@@ -834,6 +835,36 @@ def test_auth_serializes_concurrent_local_administrator_updates(tmp_path, monkey
             future.result()
 
     assert auth.list_usernames() == ["admin", "first-admin", "second-admin"]
+
+
+def test_release_permission_check_accepts_a_private_windows_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(release_permissions, "_is_windows", lambda: True)
+    monkeypatch.setattr(
+        release_permissions.subprocess,
+        "run",
+        lambda *_args, **_kwargs: __import__("subprocess").CompletedProcess(
+            [], 0, '{"valid": true, "findings": []}', ""
+        ),
+    )
+
+    release_permissions.check_release_directory_permissions(tmp_path)
+
+
+def test_release_permission_check_rejects_broad_windows_access(tmp_path, monkeypatch):
+    monkeypatch.setattr(release_permissions, "_is_windows", lambda: True)
+    monkeypatch.setattr(
+        release_permissions.subprocess,
+        "run",
+        lambda *_args, **_kwargs: __import__("subprocess").CompletedProcess(
+            [],
+            0,
+            '{"valid": false, "findings": [{"sid": "S-1-1-0", "rights": "Read"}]}',
+            "",
+        ),
+    )
+
+    with pytest.raises(release_permissions.ReleasePermissionError, match="S-1-1-0"):
+        release_permissions.check_release_directory_permissions(tmp_path)
 
 
 def test_auth_lists_and_removes_a_local_administrator(tmp_path, monkeypatch):

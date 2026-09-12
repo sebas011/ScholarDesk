@@ -138,6 +138,20 @@ multiple local administrators.
 Account removal asks you to type the username again and refuses to remove the final
 administrator. Keep at least one separately stored recovery account.
 
+### Release-folder permissions
+
+Before distributing or exposing a release through the TLS proxy, verify that broad
+local Windows groups cannot read its folder, database, or credential registry:
+
+```powershell
+.\ScholarDeskAdmin.exe --check-release-permissions
+```
+
+This is a read-only diagnostic. It rejects access granted to Everyone,
+Authenticated Users, BUILTIN\\Users, or BUILTIN\\Guests; use your organization’s
+Windows ACL process to grant access only to the required administrators and service
+accounts.
+
 Stop ScholarDesk before copying or restoring the database.
 
 ### Backup
