@@ -3252,6 +3252,17 @@ def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
     assert "console=True" in contents
     assert '(str(root / "app" / "static"), "app/static")' in contents
 
+
+def test_build_script_uses_project_tools_and_an_isolated_user_site():
+    contents = Path("build.bat").read_text(encoding="utf-8")
+
+    assert 'set "PYTHONUSERBASE=%CD%\\build\\python-user-base"' in contents
+    assert 'set "VENV_PYTHON=%CD%\\.venv\\Scripts\\python.exe"' in contents
+    assert '"%VENV_RUFF%" check .' in contents
+    assert '"%VENV_PYTHON%" -m pytest -v --basetemp ".\\build\\pytest-tmp"' in contents
+    assert '"%VENV_PYINSTALLER%" ScholarDesk.spec --clean --noconfirm' in contents
+
+
 def test_security_headers_protect_html_and_csv_responses(client):
     for response in (
         client.get("/dashboard"),
