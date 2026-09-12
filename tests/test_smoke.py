@@ -2898,7 +2898,7 @@ def test_assignment_update_cannot_target_another_scholar(client):
     data={"department": "Changed", "rank": "", "tenure": ""},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     assert "Assignment not found." in response.text
 
     db = TestSession()
@@ -2915,7 +2915,7 @@ def test_assignment_delete_cannot_target_another_scholar(client):
 
     response = client.delete("/scholars/2/assignments/1")
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     assert "Assignment not found." in response.text
 
     db = TestSession()
@@ -2937,7 +2937,7 @@ def test_grant_update_cannot_target_another_scholar(client):
         data={"program_applied": "Changed Grant", "status": "Active"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     assert "Grant not found." in response.text
 
     db = TestSession()
@@ -2958,7 +2958,7 @@ def test_grant_delete_cannot_target_another_scholar(client):
 
     response = client.delete("/grants/1?scholar_id=2")
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     assert "Grant not found." in response.text
 
     db = TestSession()
@@ -2980,7 +2980,7 @@ def test_grant_review_cannot_target_another_scholar(client):
         data={"decision": "approved", "reviewer": "Reviewer"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     assert "Grant not found." in response.text
 
     db = TestSession()

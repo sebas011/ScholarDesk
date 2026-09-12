@@ -62,6 +62,7 @@ def _render_scholar_detail(
     notice=None,
     show_all_assignments: bool = False,
     show_all_grants: bool = False,
+    status_code: int = 200,
 ):
     from app.services import scholars as scholar_service
 
@@ -69,7 +70,12 @@ def _render_scholar_detail(
     context = scholar_service.build_detail_context(
         db, scholar, show_all_assignments, show_all_grants, error, notice
     )
-    return templates.TemplateResponse(request, "partials/scholar_detail.html", context)
+    return templates.TemplateResponse(
+        request,
+        "partials/scholar_detail.html",
+        context,
+        status_code=status_code,
+    )
 
 
 @router.post("/scholars/{scholar_id}/assignments", response_class=HTMLResponse)
@@ -150,7 +156,9 @@ def update_assignment_route(
     except ValueError as e:
         db.rollback()
         if assignment is None or assignment.scholar_id != scholar_id:
-            return _render_scholar_detail(request, db, scholar_id, error=str(e))
+            return _render_scholar_detail(
+                request, db, scholar_id, error=str(e), status_code=404
+            )
         return templates.TemplateResponse(
             request,
             "partials/assignment_edit_row.html",
@@ -169,6 +177,12 @@ def delete_assignment(
     if assignment_id is None:
         return _render_scholar_detail(
             request, db, scholar_id, error="Assignment ID is required."
+        )
+
+    assignment = dept_service.get_assignment(db, assignment_id)
+    if assignment is None or assignment.scholar_id != scholar_id:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Assignment not found.", status_code=404
         )
 
     try:
@@ -281,7 +295,9 @@ def update_grant_route(
         db.rollback()
         error_message = str(exc)
     if grant is None or grant.scholar_id != scholar_id:
-        return _render_scholar_detail(request, db, scholar_id, error=error_message)
+        return _render_scholar_detail(
+            request, db, scholar_id, error=error_message, status_code=404
+        )
     if error_message:
         return templates.TemplateResponse(
             request,
@@ -293,6 +309,12 @@ def update_grant_route(
 
 @router.delete("/grants/{grant_id}", response_class=HTMLResponse)
 def delete_grant(request: Request, grant_id: int, scholar_id: int, db: Session = Depends(get_db)):
+    grant = grant_service.get_grant(db, grant_id)
+    if grant is None or grant.scholar_id != scholar_id:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Grant not found.", status_code=404
+        )
+
     try:
         grant_service.delete_grant(db, scholar_id, grant_id)
         _log_activity(request, db, scholar_id, "grant", "Grant deleted")
@@ -347,6 +369,12 @@ def add_grant_review(
     comments: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    grant = grant_service.get_grant(db, grant_id)
+    if grant is None or grant.scholar_id != scholar_id:
+        return _render_scholar_detail(
+            request, db, scholar_id, error="Grant not found.", status_code=404
+        )
+
     try:
         grant_service.add_review(db, scholar_id, grant_id, decision, reviewer, comments)
         _log_activity(
