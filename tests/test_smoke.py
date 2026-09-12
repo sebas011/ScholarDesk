@@ -3406,6 +3406,8 @@ def test_pyinstaller_spec_builds_a_separate_console_admin_utility():
 def test_build_script_uses_project_tools_and_preserves_the_previous_release():
     contents = Path("build.bat").read_text(encoding="utf-8")
 
+    assert "echo [1/7] Preparing isolated build workspace..." in contents
+    assert "echo [7/7] Publishing the staged release..." in contents
     assert 'mkdir "build"' in contents
     assert 'set "PYTHONUSERBASE=%CD%\\build\\python-user-base"' in contents
     assert 'set "VENV_PYTHON=%CD%\\.venv\\Scripts\\python.exe"' in contents
@@ -3413,6 +3415,7 @@ def test_build_script_uses_project_tools_and_preserves_the_previous_release():
     assert '"%VENV_PYTHON%" -m pip check' in contents
     assert '"%VENV_PYTHON%" -m pytest -v --basetemp ".\\build\\pytest-tmp"' in contents
     assert '"%VENV_PYTHON%" -m PyInstaller ScholarDesk.spec --clean --noconfirm' in contents
+    assert '"%VENV_PYTHON%" write_release_checksums.py ".\\build\\release-stage\\dist"' in contents
     assert '--distpath ".\\build\\release-stage\\dist"' in contents
     assert 'if exist "dist" move "dist" "build\\previous-dist" || goto :error' in contents
     assert 'move "build\\release-stage\\dist" "dist" || goto :restore_previous_release' in contents

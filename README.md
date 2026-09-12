@@ -193,6 +193,13 @@ The release folder contains runtime state beside the executable:
 The release folder and its database and credentials must remain private.
 ScholarDesk always remains localhost-only; a TLS proxy is required for LAN use.
 
+After copying a release, run the following and compare the two hash values with
+`SHA256SUMS.txt` before starting either executable:
+
+```powershell
+Get-FileHash .\ScholarDesk.exe, .\ScholarDeskAdmin.exe -Algorithm SHA256
+```
+
 ## Audit and production-hardening summary
 
 The completed audit validated the application for trusted, single-machine

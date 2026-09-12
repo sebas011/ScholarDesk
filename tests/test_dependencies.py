@@ -22,4 +22,5 @@ def test_ci_builds_and_preserves_the_windows_portable_release_artifact():
     assert "actions/upload-artifact@v7" in workflow
     assert "dist/ScholarDesk.exe" in workflow
     assert "dist/ScholarDeskAdmin.exe" in workflow
+    assert "dist/SHA256SUMS.txt" in workflow
     assert "if-no-files-found: error" in workflow
