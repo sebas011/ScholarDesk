@@ -73,11 +73,13 @@ CSRF_HEADER_NAME = "x-csrf-token"
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     csrf_token = request.cookies.get(CSRF_COOKIE_NAME)
     should_set_csrf_cookie = csrf_token is None
+    csp_nonce = secrets.token_urlsafe(24)
 
     if csrf_token is None:
         csrf_token = secrets.token_urlsafe(32)
 
     request.state.csrf_token = csrf_token
+    request.state.csp_nonce = csp_nonce
 
     if request.url.path == PAYROLL_PATH_PREFIX or request.url.path.startswith(
         f"{PAYROLL_PATH_PREFIX}/"
@@ -119,6 +121,17 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        f"script-src 'self' 'nonce-{csp_nonce}'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'"
+    )
     return response
 
 app.add_middleware(

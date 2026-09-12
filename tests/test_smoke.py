@@ -9,6 +9,7 @@ import csv
 import hashlib
 import io
 from pathlib import Path
+import re
 import run as application_runner
 from app.routers.scholars import _csv_cell
 import pytest
@@ -3272,6 +3273,21 @@ def test_security_headers_protect_html_and_csv_responses(client):
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert response.headers["referrer-policy"] == "same-origin"
+
+
+def test_content_security_policy_authorizes_only_the_response_nonce(client):
+    response = client.get("/dashboard")
+    nonce_match = re.search(r'<script nonce="([^"]+)"', response.text)
+
+    assert nonce_match is not None
+    nonce = nonce_match.group(1)
+    policy = response.headers["content-security-policy"]
+    assert f"script-src 'self' 'nonce-{nonce}'" in policy
+    assert "object-src 'none'" in policy
+    assert "frame-ancestors 'none'" in policy
+    assert "onclick=" not in client.get("/scholars").text
+    assert "onchange=" not in client.get("/home").text
+
 
 def test_cross_origin_mutation_is_rejected(client):
     response = client.post(

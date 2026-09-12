@@ -100,7 +100,7 @@
 </div>
 {% endif %}
 </div>
-<script>
+<script nonce="{{ request.state.csp_nonce }}">
 // Sync export button href with live search/year filters
 document.body.addEventListener('htmx:afterSwap', function(evt) {
     if (evt.detail.target.id === 'dashboard-content') {

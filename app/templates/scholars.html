@@ -38,7 +38,7 @@
                     <button class="text-indigo-600 hover:text-indigo-700 font-semibold"
                         hx-get="/scholars/list" hx-target="#scholar-list"
                         hx-vals='{"offset": 0, "q": "", "selected_id": {{ selected_id or "null" }}}'
-                        onclick="document.querySelector('[name=q]').value=''">Clear</button>
+                        data-clear-search>Clear</button>
                 {% endif %}
             </div>
         </div>

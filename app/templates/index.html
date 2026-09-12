@@ -74,10 +74,10 @@
             <h3 class="font-bold text-navy-900">Filter</h3>
         </div>
         <div class="card-body">
-            <form method="get" action="/home" class="space-y-3">
+            <form method="get" action="/home" class="space-y-3" data-submit-on-change>
                 <div>
                     <label class="form-label">School Year</label>
-                    <select name="year" onchange="this.form.submit()" class="form-input form-select">
+                    <select name="year" class="form-input form-select">
                         <option value="" {% if not selected_year %}selected{% endif %}>All years</option>
                         {% for y in available_years %}
                         <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>

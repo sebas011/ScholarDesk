@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ request.state.csrf_token }}">
     <title>ScholarDesk — Grant & Scholar Management</title>
-    <script src="{{ url_for('static', path='vendor/tailwindcss-3.4.17.js') }}"></script>
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='vendor/tailwindcss-3.4.17.js') }}"></script>
+    <script nonce="{{ request.state.csp_nonce }}">
         tailwind.config = {
             theme: {
                 extend: {
@@ -21,8 +21,8 @@
             }
         }
     </script>
-    <script src="{{ url_for('static', path='vendor/htmx-1.9.12.min.js') }}"></script>
-    <style>
+    <script nonce="{{ request.state.csp_nonce }}" src="{{ url_for('static', path='vendor/htmx-1.9.12.min.js') }}"></script>
+    <style nonce="{{ request.state.csp_nonce }}">
         body { font-family: 'Inter', system-ui, sans-serif; background: #f1f5f9; color: #0f172a; line-height: 1.5; -webkit-font-smoothing: antialiased; }
         
         /* HTMX swap animations */
@@ -132,7 +132,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}">
     // HTMX normally refuses to swap non-2xx responses. Error partials are
     // intentionally safe to render in the initiating request's target.
 
@@ -170,6 +170,19 @@
             if (detail) detail.scrollTop = detailScroll;
         });
         
+        // Keep search reset ahead of HTMX's bubbling click listener.
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('[data-clear-search]')) return;
+            var search = document.querySelector('[name="q"]');
+            if (search) search.value = '';
+        }, true);
+
+        // Submit conventional filter forms without inline event handlers.
+        document.addEventListener('change', function(e) {
+            var form = e.target.closest('form[data-submit-on-change]');
+            if (form) form.requestSubmit();
+        });
+
         // Highlight clicked scholar in sidebar immediately (client-side)
         document.body.addEventListener('click', function(e) {
             var link = e.target.closest('.scholar-list a');
