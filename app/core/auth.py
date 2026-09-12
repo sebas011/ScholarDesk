@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import secrets
 from collections import OrderedDict, deque
 from collections.abc import Callable
 from math import ceil
+from pathlib import Path
 from threading import Lock
 from time import monotonic
 
@@ -23,6 +25,7 @@ from app.database import app_dir
 from app.core.logging import logger
 
 CREDENTIALS_FILE = app_dir / "auth.txt"
+USERS_FILE_NAME = "users.json"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
 PASSWORD_HASH_SCHEME = "pbkdf2_sha256"
@@ -199,6 +202,48 @@ def set_hashed_credentials(username: str, password: str) -> None:
     replacement_file.replace(CREDENTIALS_FILE)
 
 
+def _users_file() -> Path:
+    return CREDENTIALS_FILE.with_name(USERS_FILE_NAME)
+
+
+def _write_users(users: dict[str, str]) -> None:
+    users_file = _users_file()
+    replacement = users_file.with_name(f".{users_file.name}.new")
+    replacement.write_text(json.dumps({"version": 1, "users": users}, indent=2), encoding="utf-8")
+    replacement.replace(users_file)
+
+
+def load_users() -> dict[str, str]:
+    users_file = _users_file()
+    if users_file.exists():
+        try:
+            payload = json.loads(users_file.read_text(encoding="utf-8"))
+            users = payload["users"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return {}
+        return {
+            username: password_hash
+            for username, password_hash in users.items()
+            if isinstance(username, str)
+            and isinstance(password_hash, str)
+            and _is_supported_password_hash(password_hash)
+        }
+
+    username, password_hash, is_hashed = _load_auth_record()
+    if username and is_hashed and _is_supported_password_hash(password_hash):
+        users = {username: password_hash}
+        _write_users(users)
+        return users
+    return {}
+
+
+def set_user_password(username: str, password: str) -> None:
+    username = _validate_username(username)
+    users = load_users()
+    users[username] = hash_password(password)
+    _write_users(users)
+
+
 def _load_auth_record() -> tuple[str, str, bool]:
     values = _load_credential_values()
     password_hash = values.get("password_hash", "")
@@ -208,25 +253,23 @@ def _load_auth_record() -> tuple[str, str, bool]:
 
 
 def using_default_password() -> bool:
-    username, credential, is_hashed = _load_auth_record()
-    return not username or not credential or not is_hashed
+    return not load_users()
 
 
 def verify_credentials(
     request: Request,
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> str:
-    correct_username, stored_credential, is_hashed = _load_auth_record()
-    if not correct_username or not is_hashed or not _is_supported_password_hash(stored_credential):
+    users = load_users()
+    stored_credential = users.get(credentials.username, "")
+    if not users:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication is not configured. Reset credentials with ScholarDeskAdmin.",
         )
 
     client_address = request.client.host if request.client is not None else "unknown"
-    is_valid_username = secrets.compare_digest(credentials.username, correct_username)
-    is_valid_password = verify_password(credentials.password, stored_credential)
-    if not (is_valid_username and is_valid_password):
+    if not stored_credential or not verify_password(credentials.password, stored_credential):
         retry_after = failed_login_limiter.register_attempt(client_address)
         if retry_after is not None:
             logger.warning("Authentication rate limit reached.")

@@ -68,7 +68,7 @@ pip install -r requirements.txt
 build.bat
 ```
 
-Produces `dist\ScholarDesk.exe` and `dist\ScholarDeskAdmin.exe`. Keep both files in the same private release folder. On first use, run `ScholarDeskAdmin.exe` to set the local username and password, then start `ScholarDesk.exe`; the admin tool requires new passwords to contain at least 12 characters and stores only a password hash in `auth.txt`. ScholarDesk rejects legacy plaintext `password=` files and returns a configuration error until the administrator helper resets the credentials. The fifth consecutive failed login attempt from one client within one minute receives `429 Too Many Requests`. A successful login clears that client's failure history immediately; otherwise, wait for the supplied `Retry-After` period before retrying.
+Produces `dist\ScholarDesk.exe` and `dist\ScholarDeskAdmin.exe`. Keep both files in the same private release folder. On first use, run `ScholarDeskAdmin.exe` to set the local username and password, then start `ScholarDesk.exe`; the admin tool requires new passwords to contain at least 12 characters and stores only password hashes. Existing valid `auth.txt` credentials migrate automatically to `users.json` on first login, and later administrator runs can add or reset named local accounts. ScholarDesk rejects legacy plaintext `password=` files and returns a configuration error until the administrator helper resets the credentials. The fifth consecutive failed login attempt from one client within one minute receives `429 Too Many Requests`. A successful login clears that client's failure history immediately; otherwise, wait for the supplied `Retry-After` period before retrying.
 The build uses only the project's `.venv` tools and isolated temporary directories for Python and pytest, so it does not depend on globally installed Python packages or a user's roaming Python and temporary folders.
 Close the dedicated ScholarDesk window to stop the background server completely. The packaged app uses a temporary Edge profile and does not leave the server listening after the window closes. `grants.db` is created next to the `.exe` the first time you run it, and stays there across runs.
 The Grant Tracker browser assets are bundled into the executable, so normal use does not require Internet access.
@@ -121,7 +121,7 @@ tests/
 ## Database, Backups, and Migrations
 
 ScholarDesk stores its SQLite database in `grants.db`, next to the executable. The
-local credential file `auth.txt` is stored in the same directory.
+local credential files `auth.txt` and `users.json` are stored in the same directory.
 
 Stop ScholarDesk before copying or restoring the database.
 
@@ -137,7 +137,7 @@ This uses SQLite's backup API, so it captures committed data correctly even when
 `grants.db` is in WAL mode. It does not modify the live database and writes the
 backup to `backups\`. From source, run `python -m app.admin --backup-database`.
 Keep backups outside the release folder when possible. Never commit `auth.txt`,
-`grants.db`, or backup files to Git.
+`users.json`, `grants.db`, or backup files to Git.
 
 ### Backup restore drill
 
@@ -199,7 +199,8 @@ The release folder contains runtime state beside the executable:
 - `ScholarDesk.exe` — packaged application
 - `ScholarDeskAdmin.exe` — local password-reset utility; keep private
 - `grants.db` — live SQLite data
-- `auth.txt` — local Basic Auth credentials
+- `auth.txt` — legacy single-account credentials retained for migration
+- `users.json` — local multi-user Basic Auth credential registry
 - `logs\` — runtime logs
 - `SHA256SUMS.txt` — executable integrity record
 
@@ -247,7 +248,7 @@ Before distributing a new Windows release:
 
 1. Run the tests and build from the main checkout with `build.bat`.
 2. Stop any running packaged application before copying database files.
-3. Keep `auth.txt` and `grants.db` private.
+3. Keep `auth.txt`, `users.json`, and `grants.db` private.
 4. Verify the executable hash with `Get-FileHash`.
 5. Start the copied release and test login and data persistence.
 6. Stop the app and remove transient `grants.db-shm`, `grants.db-wal`, and

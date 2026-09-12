@@ -783,6 +783,38 @@ def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
     assert auth.verify_credentials(_authentication_request(), credentials) == "test-user"
 
 
+def test_auth_migrates_legacy_account_to_multi_user_registry(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("legacy-admin", "correct horse battery staple")
+
+    assert not (tmp_path / "users.json").exists()
+    assert auth.verify_credentials(
+        _authentication_request(),
+        HTTPBasicCredentials(
+            username="legacy-admin", password="correct horse battery staple"
+        ),
+    ) == "legacy-admin"
+
+    users = json.loads((tmp_path / "users.json").read_text(encoding="utf-8"))
+    assert users["version"] == 1
+    assert set(users["users"]) == {"legacy-admin"}
+
+
+def test_auth_accepts_a_second_local_administrator(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("admin", "correct horse battery staple")
+    auth.set_user_password("second-admin", "another correct horse battery staple")
+
+    assert auth.verify_credentials(
+        _authentication_request(),
+        HTTPBasicCredentials(
+            username="second-admin", password="another correct horse battery staple"
+        ),
+    ) == "second-admin"
+
+
 @pytest.mark.parametrize(
     ("username", "password"),
     [

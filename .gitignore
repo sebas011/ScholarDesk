@@ -9,6 +9,7 @@ grants.db-shm
 # (real scholar names, ages, etc.) plus logs, so they must never be
 # committed even though grants.db itself already is.
 auth.txt
+users.json
 build/
 dist/
 logs/

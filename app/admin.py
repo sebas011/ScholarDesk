@@ -7,7 +7,7 @@ import getpass
 from pathlib import Path
 import sqlite3
 
-from app.core.auth import DEFAULT_USERNAME, set_hashed_credentials
+from app.core.auth import DEFAULT_USERNAME, set_user_password
 from app.backups import DatabaseBackupError, backup_database, run_backup_restore_drill
 from app.database import app_dir
 from app.migrations import SchemaVersionError, baseline_legacy_database
@@ -19,13 +19,13 @@ def _set_password() -> None:
     password = getpass.getpass("New password (at least 12 characters): ")
     confirmation = getpass.getpass("Confirm new password: ")
     if password != confirmation:
-        raise SystemExit("Passwords did not match; auth.txt was not changed.")
+        raise SystemExit("Passwords did not match; user accounts were not changed.")
 
     try:
-        set_hashed_credentials(username, password)
+        set_user_password(username, password)
     except ValueError as error:
         raise SystemExit(str(error)) from error
-    print("Credentials saved securely. Restart ScholarDesk if it is running.")
+    print("User account saved securely. Restart ScholarDesk if it is running.")
 
 
 def _baseline_database(database_path: Path) -> None:
