@@ -358,7 +358,14 @@ def verify_credentials(
     request: Request,
     credentials: HTTPBasicCredentials = Depends(security),
 ) -> str:
-    users = load_users()
+    try:
+        users = load_users()
+    except OSError:
+        logger.exception("Authentication credential storage is unavailable.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is temporarily unavailable. Please try again later.",
+        ) from None
     if not users:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

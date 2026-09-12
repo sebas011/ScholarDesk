@@ -775,6 +775,23 @@ def test_auth_rejects_non_hashed_or_malformed_credentials(tmp_path, monkeypatch,
     assert "Reset credentials with ScholarDeskAdmin" in str(error.value.detail)
 
 
+def test_auth_fails_closed_when_credential_storage_is_unavailable(monkeypatch):
+    def fail_load_users() -> dict[str, str]:
+        raise OSError("locked")
+
+    monkeypatch.setattr(auth, "load_users", fail_load_users)
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(
+            _authentication_request(),
+            HTTPBasicCredentials(username="test-user", password="test-password"),
+        )
+
+    assert error.value.status_code == 503
+    assert "temporarily unavailable" in str(error.value.detail)
+    assert "locked" not in str(error.value.detail)
+
+
 def test_auth_accepts_valid_credentials(tmp_path, monkeypatch):
     credentials_file = tmp_path / "auth.txt"
     monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
