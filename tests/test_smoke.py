@@ -304,6 +304,21 @@ def test_home_starts_empty(client):
     assert '<div class="text-3xl font-bold text-navy-900">0</div>' in resp.text
 
 
+def test_runner_trusts_forwarded_headers_only_from_local_caddy(monkeypatch):
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        application_runner.uvicorn,
+        "run",
+        lambda *args, **kwargs: captured.update(kwargs),
+    )
+
+    application_runner.main()
+
+    assert captured["proxy_headers"] is True
+    assert captured["forwarded_allow_ips"] == "127.0.0.1"
+
+
 def test_empty_year_param_does_not_422(client):
     """Regression test: the year-filter dropdown's 'All Years' option
     submits year='' rather than omitting the param entirely. All three

@@ -36,6 +36,8 @@ def main():
         "port": 8000,
         "log_level": "info",
         "reload": not frozen,
+        "proxy_headers": True,
+        "forwarded_allow_ips": "127.0.0.1",
     }
     if frozen:
         kwargs["log_config"] = None
