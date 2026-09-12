@@ -54,7 +54,7 @@ jobs:
         run: python -m venv .venv
 
       - name: Install Windows build dependencies
-        run: .\.venv\Scripts\python.exe -m pip install -r requirements.windows.txt
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements.windows.lock.txt
 
       - name: Build portable release
         run: cmd /c build.bat
