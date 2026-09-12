@@ -117,22 +117,36 @@
     <div id="htmx-progress" class="htmx-indicator"></div>
     
     {% if show_navigation is not defined or show_navigation %}
-    <header class="bg-navy-900 text-white sticky top-0 z-50 shadow-md">
-        <div class="max-w-[1400px] mx-auto px-6 h-[56px] flex items-center gap-8">
-            <a href="/" class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+    <header class="bg-navy-900 text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-[1400px] mx-auto px-6 h-[56px] flex items-center gap-3">
+            <button id="navigation-toggle" type="button" aria-controls="navigation-drawer" aria-expanded="false" class="p-2 rounded-md text-slate-200 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-300" aria-label="Open navigation">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <a href="/home" class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                 ScholarDesk
             </a>
-            <nav class="flex items-center gap-1">
-    <a href="/home" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/' %}bg-white/10 text-white{% endif %}">Home</a>
-    <a href="/dashboard" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/dashboard' %}bg-white/10 text-white{% endif %}">Directory</a>
-    <form method="post" action="/logout" class="inline">
-        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-        <button type="submit" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">Sign out</button>
-    </form>
-</nav>
         </div>
     </header>
+    <div id="navigation-overlay" class="hidden fixed inset-0 bg-slate-950/40 z-40" aria-hidden="true"></div>
+    <aside id="navigation-drawer" class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] -translate-x-full bg-navy-900 text-white shadow-2xl transition-transform duration-200 ease-out" aria-label="ScholarDesk navigation">
+        <div class="h-[56px] px-5 flex items-center justify-between border-b border-white/10">
+            <span class="font-bold tracking-tight">ScholarDesk</span>
+            <button id="navigation-close" type="button" class="p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-300" aria-label="Close navigation">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <nav class="p-3 space-y-1">
+            <a href="/home" class="block px-3 py-2.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 {% if request.url.path == '/home' %}bg-white/10 text-white{% endif %}">Home</a>
+            <a href="/dashboard" class="block px-3 py-2.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 {% if request.url.path == '/dashboard' %}bg-white/10 text-white{% endif %}">Directory</a>
+        </nav>
+        <div class="absolute inset-x-0 bottom-0 p-3 border-t border-white/10">
+            <form method="post" action="/logout">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                <button type="submit" class="w-full text-left px-3 py-2.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10">Sign out</button>
+            </form>
+        </div>
+    </aside>
     {% endif %}
     
     <main class="max-w-[1400px] mx-auto px-6 py-5">
@@ -149,6 +163,31 @@
         event.detail.headers["X-CSRF-Token"] = csrfToken.content;
     }
     });
+
+    var navigationToggle = document.getElementById("navigation-toggle");
+    var navigationDrawer = document.getElementById("navigation-drawer");
+    var navigationOverlay = document.getElementById("navigation-overlay");
+    var navigationClose = document.getElementById("navigation-close");
+
+    function setNavigationOpen(isOpen) {
+        if (!navigationToggle || !navigationDrawer || !navigationOverlay) return;
+        navigationDrawer.classList.toggle("-translate-x-full", !isOpen);
+        navigationOverlay.classList.toggle("hidden", !isOpen);
+        navigationToggle.setAttribute("aria-expanded", String(isOpen));
+        document.body.classList.toggle("overflow-hidden", isOpen);
+        if (isOpen && navigationClose) navigationClose.focus();
+        else navigationToggle.focus();
+    }
+
+    if (navigationToggle && navigationDrawer && navigationOverlay && navigationClose) {
+        navigationToggle.addEventListener("click", function() { setNavigationOpen(true); });
+        navigationOverlay.addEventListener("click", function() { setNavigationOpen(false); });
+        navigationClose.addEventListener("click", function() { setNavigationOpen(false); });
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape") setNavigationOpen(false);
+        });
+    }
+
     document.body.addEventListener("htmx:beforeSwap", function(event) {
         if ([403, 413, 422, 500, 503].includes(event.detail.xhr.status)) {
             event.detail.shouldSwap = true;

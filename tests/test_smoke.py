@@ -341,6 +341,25 @@ def test_browser_assets_are_bundled_and_served_locally(client):
     assert client.get("/static/vendor/htmx-1.9.12.min.js").status_code == 200
 
 
+def test_grant_tracker_uses_an_accessible_hamburger_sidebar(client):
+    response = client.get("/home")
+
+    assert response.status_code == 200
+    assert 'id="navigation-toggle"' in response.text
+    assert 'id="navigation-drawer"' in response.text
+    assert 'id="navigation-overlay"' in response.text
+    assert 'aria-controls="navigation-drawer"' in response.text
+    assert 'action="/logout"' in response.text
+
+
+def test_system_selection_page_does_not_render_grant_tracker_navigation(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="navigation-toggle"' not in response.text
+    assert 'id="navigation-drawer"' not in response.text
+
+
 def test_bundled_browser_assets_match_recorded_hashes():
     expected_hashes = {
         "tailwindcss-3.4.17.js": (
