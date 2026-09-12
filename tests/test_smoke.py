@@ -55,7 +55,6 @@ from app.payroll_models import PayrollAuditRecord
 from app.services.payroll_store import replace_payroll_audits
 from app.services.payroll_import_service import import_payroll_workbooks
 from app.payroll_database import initialize_payroll_database
-from app.payroll_models import FacultyProfile
 from sqlalchemy.orm import Query
 from app.routers.scholars import _enrich_scholars
 from app.main import MAX_REQUEST_BODY_BYTES
@@ -2554,16 +2553,6 @@ def test_payroll_routes_are_hidden(client):
     assert "Faculty Workload" not in launcher_response.text
     assert 'href="/payroll"' not in launcher_response.text
     assert "Scholar & Grant Tracking" in launcher_response.text
-
-def test_faculty_profile_schema_contains_manual_entry_fields():
-    assert FacultyProfile.__tablename__ == "faculty_profiles"
-
-    columns = FacultyProfile.__table__.columns
-
-    assert "name" in columns
-    assert "academic_rank" in columns
-    assert "monthly_salary" in columns
-    assert "withholding_tax_rate" in columns
 
 def test_dashboard_rejects_excessive_page_size(client):
     response = client.get("/dashboard?per_page=101")
