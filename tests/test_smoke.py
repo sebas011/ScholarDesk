@@ -708,7 +708,7 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
         request, HTTPBasicCredentials(username="test-user", password="correct-pass")
     ) == "test-user"
 
-    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS - 1):
         with pytest.raises(HTTPException) as error:
             auth.verify_credentials(request, wrong_credentials)
         assert error.value.status_code == 401
@@ -718,6 +718,30 @@ def test_auth_limits_failed_logins_then_recovers_and_resets_on_success(tmp_path,
 
     assert error.value.status_code == 429
     assert error.value.headers == {"Retry-After": "60"}
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, wrong_credentials)
+    assert error.value.status_code == 429
+    assert len(auth.failed_login_limiter._attempts_by_client["192.0.2.10"]) == (
+        auth.MAX_FAILED_LOGIN_ATTEMPTS
+    )
+
+    assert auth.verify_credentials(
+        request, HTTPBasicCredentials(username="test-user", password="correct-pass")
+    ) == "test-user"
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, wrong_credentials)
+    assert error.value.status_code == 401
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS - 2):
+        with pytest.raises(HTTPException) as error:
+            auth.verify_credentials(request, wrong_credentials)
+        assert error.value.status_code == 401
+
+    with pytest.raises(HTTPException) as error:
+        auth.verify_credentials(request, wrong_credentials)
+    assert error.value.status_code == 429
 
     now[0] = float(auth.FAILED_LOGIN_WINDOW_SECONDS)
     with pytest.raises(HTTPException) as error:

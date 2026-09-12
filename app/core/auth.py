@@ -74,6 +74,8 @@ class FailedLoginRateLimiter:
 
             attempts.append(now)
             self._attempts_by_client.move_to_end(client_address)
+            if len(attempts) >= self._max_attempts:
+                return max(1, ceil(self._window_seconds - (now - attempts[0])))
             return None
 
     def clear(self, client_address: str) -> None:
@@ -222,18 +224,17 @@ def verify_credentials(
         )
 
     client_address = request.client.host if request.client is not None else "unknown"
-    retry_after = failed_login_limiter.register_attempt(client_address)
-    if retry_after is not None:
-        logger.warning("Authentication rate limit reached.")
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Please try again later.",
-            headers={"Retry-After": str(retry_after)},
-        )
-
     is_valid_username = secrets.compare_digest(credentials.username, correct_username)
     is_valid_password = verify_password(credentials.password, stored_credential)
     if not (is_valid_username and is_valid_password):
+        retry_after = failed_login_limiter.register_attempt(client_address)
+        if retry_after is not None:
+            logger.warning("Authentication rate limit reached.")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts. Please try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password.",
