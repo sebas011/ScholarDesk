@@ -1126,6 +1126,48 @@ def test_build_detail_context_includes_latest_grant_review(db_session):
     assert context["grant_reviews"][grant.id].decision == "approved"
 
 
+def test_build_detail_context_bounds_default_history_but_preserves_totals(db_session):
+    scholar = Scholar(name="Bounded Detail Scholar")
+    db_session.add(scholar)
+    db_session.commit()
+
+    assignments = [
+        DepartmentAssignment(scholar_id=scholar.id, department=f"Department {index}")
+        for index in range(11)
+    ]
+    grants = [
+        Grant(
+            scholar_id=scholar.id,
+            program_applied=f"Grant {index}",
+            status="Active",
+        )
+        for index in range(11)
+    ]
+    db_session.add_all(assignments + grants)
+    db_session.commit()
+
+    for grant in grants:
+        db_session.add(GrantReview(grant_id=grant.id, decision="approved"))
+    db_session.commit()
+
+    context = scholar_service.build_detail_context(db_session, scholar)
+
+    assert context["assignments_total"] == 11
+    assert len(context["assignments"]) == 10
+    assert context["grants_total"] == 11
+    assert len(context["grants"]) == 10
+    assert set(context["grant_reviews"]) == {grant.id for grant in context["grants"]}
+
+    full_context = scholar_service.build_detail_context(
+        db_session,
+        scholar,
+        show_all_assignments=True,
+        show_all_grants=True,
+    )
+    assert len(full_context["assignments"]) == 11
+    assert len(full_context["grants"]) == 11
+
+
 # def test_get_full_scholar_data_groups_assignments(db_session):
 #     scholar = Scholar(name="Assignment Group Scholar")
 #     db_session.add(scholar)

@@ -41,8 +41,18 @@ def build_detail_context(
     from app.models import ActivityLog, ScholarNote, GrantReview
     from sqlalchemy import func as sa_func
 
-    all_assignments = dept_service.list_for_scholar(db, scholar.id)
-    all_grants = grant_service.list_for_scholar(db, scholar.id)
+    assignments_total = dept_service.count_for_scholar(db, scholar.id)
+    grants_total = grant_service.count_for_scholar(db, scholar.id)
+    assignments = dept_service.list_for_scholar(
+        db,
+        scholar.id,
+        limit=None if show_all_assignments else ROWS_SHOWN_BY_DEFAULT,
+    )
+    grants = grant_service.list_for_scholar(
+        db,
+        scholar.id,
+        limit=None if show_all_grants else ROWS_SHOWN_BY_DEFAULT,
+    )
 
     # XRM: timeline + notes
     notes = (
@@ -62,8 +72,8 @@ def build_detail_context(
 
     # GMS: latest review per grant
     grant_reviews: dict[int, GrantReview] = {}
-    if all_grants:
-        grant_ids = [g.id for g in all_grants]
+    if grants:
+        grant_ids = [grant.id for grant in grants]
         latest_review_ids = (
             db.query(sa_func.max(GrantReview.id))
             .filter(GrantReview.grant_id.in_(grant_ids))
@@ -77,13 +87,11 @@ def build_detail_context(
 
     return {
         "scholar": scholar,
-        "assignments": all_assignments
-        if show_all_assignments
-        else all_assignments[:ROWS_SHOWN_BY_DEFAULT],
-        "assignments_total": len(all_assignments),
+        "assignments": assignments,
+        "assignments_total": assignments_total,
         "show_all_assignments": show_all_assignments,
-        "grants": all_grants if show_all_grants else all_grants[:ROWS_SHOWN_BY_DEFAULT],
-        "grants_total": len(all_grants),
+        "grants": grants,
+        "grants_total": grants_total,
         "show_all_grants": show_all_grants,
         "notes": notes,
         "activity_logs": activity_logs,

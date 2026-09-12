@@ -7,6 +7,7 @@ their own opinion about what "primary" meant.
 """
 
 from datetime import date
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models import DepartmentAssignment, Scholar
 from app.utils.dates import range_active_in_year
@@ -33,12 +34,31 @@ def _validate_date_range(date_started: date | None, date_ended: date | None) -> 
         raise ValueError("Assignment end date cannot be before start date.")
 
 
-def list_for_scholar(db: Session, scholar_id: int) -> list[DepartmentAssignment]:
-    return (
+def list_for_scholar(
+    db: Session, scholar_id: int, *, limit: int | None = None
+) -> list[DepartmentAssignment]:
+    """Return a scholar's assignments in display order.
+
+    ``limit`` keeps the default profile view bounded; callers that explicitly
+    request the complete history can omit it.
+    """
+    query = (
         db.query(DepartmentAssignment)
         .filter(DepartmentAssignment.scholar_id == scholar_id)
         .order_by(DepartmentAssignment.id)
-        .all()
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def count_for_scholar(db: Session, scholar_id: int) -> int:
+    """Return an assignment total without constructing assignment objects."""
+    return (
+        db.query(func.count(DepartmentAssignment.id))
+        .filter(DepartmentAssignment.scholar_id == scholar_id)
+        .scalar()
+        or 0
     )
 
 

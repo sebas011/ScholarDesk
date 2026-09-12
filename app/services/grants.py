@@ -4,6 +4,7 @@ Grant business logic - mirrors modGrants.bas.
 
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models import Grant, GrantReview, Scholar
 
@@ -54,8 +55,28 @@ def _validate_year_range(start_year: int | None, end_year: int | None) -> None:
         raise ValueError("Grant end year cannot be before start year.")
 
 
-def list_for_scholar(db: Session, scholar_id: int) -> list[Grant]:
-    return db.query(Grant).filter(Grant.scholar_id == scholar_id).order_by(Grant.id).all()
+def list_for_scholar(
+    db: Session, scholar_id: int, *, limit: int | None = None
+) -> list[Grant]:
+    """Return a scholar's grants in display order.
+
+    ``limit`` keeps the default profile view bounded; callers that explicitly
+    request the complete history can omit it.
+    """
+    query = db.query(Grant).filter(Grant.scholar_id == scholar_id).order_by(Grant.id)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def count_for_scholar(db: Session, scholar_id: int) -> int:
+    """Return a grant total without constructing grant objects."""
+    return (
+        db.query(func.count(Grant.id))
+        .filter(Grant.scholar_id == scholar_id)
+        .scalar()
+        or 0
+    )
 
 
 def get_grant(db: Session, grant_id: int) -> Grant | None:
