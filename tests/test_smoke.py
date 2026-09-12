@@ -3587,6 +3587,10 @@ def test_oversized_write_request_is_rejected(client):
 
     assert response.status_code == 413
     assert "Request is too large. Please reduce it and try again." in response.text
+    assert response.headers["content-security-policy"] == (
+        "default-src 'none'; base-uri 'none'; "
+        "form-action 'none'; frame-ancestors 'none'"
+    )
 
 
 def test_oversized_htmx_write_returns_error_partial(client):
