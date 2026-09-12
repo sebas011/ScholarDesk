@@ -3275,6 +3275,15 @@ def test_security_headers_protect_html_and_csv_responses(client):
         assert response.headers["referrer-policy"] == "same-origin"
 
 
+def test_versioned_vendor_assets_are_immutable_cacheable(client):
+    response = client.get("/static/vendor/htmx-1.9.12.min.js")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "set-cookie" not in response.headers
+
+
 def test_content_security_policy_authorizes_only_the_response_nonce(client):
     response = client.get("/dashboard")
     nonce_match = re.search(r'<script nonce="([^"]+)"', response.text)

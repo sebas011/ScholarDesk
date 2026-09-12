@@ -68,9 +68,17 @@ UNSAFE_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 CSRF_COOKIE_NAME = "scholardesk_csrf"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_HEADER_NAME = "x-csrf-token"
+VENDORED_STATIC_PATH_PREFIX = "/static/vendor/"
 
 @app.middleware("http")
 async def apply_security_headers_and_hide_payroll(request: Request, call_next):
+    if request.url.path.startswith(VENDORED_STATIC_PATH_PREFIX):
+        response = await call_next(request)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
     csrf_token = request.cookies.get(CSRF_COOKIE_NAME)
     should_set_csrf_cookie = csrf_token is None
     csp_nonce = secrets.token_urlsafe(24)
