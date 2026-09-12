@@ -105,6 +105,11 @@ async def apply_security_headers_and_hide_payroll(request: Request, call_next):
 
         submitted_token = request.headers.get(CSRF_HEADER_NAME)
         if submitted_token is None:
+            # Cache the request body before parsing the form. This middleware
+            # runs before FastAPI binds Form(...) parameters; without caching,
+            # request.form() consumes ordinary browser form submissions and
+            # downstream handlers receive an empty body.
+            await request.body()
             form = await request.form()
             submitted_token = form.get(CSRF_FORM_FIELD)
 

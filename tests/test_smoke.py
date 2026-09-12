@@ -266,6 +266,24 @@ def test_new_scholar_form_contains_csrf_token(client):
     assert response.status_code == 200
     assert f'name="csrf_token" value="{csrf_token}"' in response.text
 
+
+def test_browser_form_submission_preserves_fields_after_csrf_check(client):
+    """A regular HTML form sends its CSRF token in the body, not a header."""
+    client.headers.pop("X-CSRF-Token")
+
+    response = client.post(
+        "/scholars/new",
+        data={
+            "csrf_token": client.cookies["scholardesk_csrf"],
+            "name": "Browser Form Scholar",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard"
+
+
 def test_home_starts_empty(client):
     resp = client.get("/home")
     assert resp.status_code == 200
