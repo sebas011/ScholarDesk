@@ -10,9 +10,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import secrets
 from collections import OrderedDict, deque
 from collections.abc import Callable
+from contextlib import contextmanager
 from math import ceil
 from pathlib import Path
 from threading import Lock
@@ -26,6 +28,7 @@ from app.core.logging import logger
 
 CREDENTIALS_FILE = app_dir / "auth.txt"
 USERS_FILE_NAME = "users.json"
+USERS_LOCK_FILE_NAME = "users.json.lock"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
 PASSWORD_HASH_SCHEME = "pbkdf2_sha256"
@@ -206,6 +209,36 @@ def _users_file() -> Path:
     return CREDENTIALS_FILE.with_name(USERS_FILE_NAME)
 
 
+@contextmanager
+def _user_registry_write_lock():
+    """Serialize account changes across local administrator processes."""
+    lock_file_path = CREDENTIALS_FILE.with_name(USERS_LOCK_FILE_NAME)
+    with lock_file_path.open("a+b") as lock_file:
+        lock_file.seek(0, 2)
+        if lock_file.tell() == 0:
+            lock_file.write(b"0")
+            lock_file.flush()
+        lock_file.seek(0)
+
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                lock_file.seek(0)
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 def _write_users(users: dict[str, str]) -> None:
     users_file = _users_file()
     replacement = users_file.with_name(f".{users_file.name}.new")
@@ -213,35 +246,54 @@ def _write_users(users: dict[str, str]) -> None:
     replacement.replace(users_file)
 
 
-def load_users() -> dict[str, str]:
+def _load_users_file() -> dict[str, str] | None:
     users_file = _users_file()
-    if users_file.exists():
-        try:
-            payload = json.loads(users_file.read_text(encoding="utf-8"))
-            users = payload["users"]
-        except (json.JSONDecodeError, KeyError, TypeError):
-            return {}
-        return {
-            username: password_hash
-            for username, password_hash in users.items()
-            if isinstance(username, str)
-            and isinstance(password_hash, str)
-            and _is_supported_password_hash(password_hash)
-        }
+    if not users_file.exists():
+        return None
+    try:
+        payload = json.loads(users_file.read_text(encoding="utf-8"))
+        users = payload["users"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {}
+    return {
+        username: password_hash
+        for username, password_hash in users.items()
+        if isinstance(username, str)
+        and isinstance(password_hash, str)
+        and _is_supported_password_hash(password_hash)
+    }
 
+
+def _legacy_users() -> dict[str, str]:
     username, password_hash, is_hashed = _load_auth_record()
     if username and is_hashed and _is_supported_password_hash(password_hash):
-        users = {username: password_hash}
-        _write_users(users)
-        return users
+        return {username: password_hash}
     return {}
+
+
+def load_users() -> dict[str, str]:
+    users = _load_users_file()
+    if users is not None:
+        return users
+
+    with _user_registry_write_lock():
+        users = _load_users_file()
+        if users is not None:
+            return users
+        users = _legacy_users()
+        if users:
+            _write_users(users)
+        return users
 
 
 def set_user_password(username: str, password: str) -> None:
     username = _validate_username(username)
-    users = load_users()
-    users[username] = hash_password(password)
-    _write_users(users)
+    with _user_registry_write_lock():
+        users = _load_users_file()
+        if users is None:
+            users = _legacy_users()
+        users[username] = hash_password(password)
+        _write_users(users)
 
 
 def list_usernames() -> list[str]:
@@ -252,14 +304,17 @@ def list_usernames() -> list[str]:
 def remove_user(username: str) -> None:
     """Revoke one local administrator while preserving a recovery account."""
     username = _validate_username(username)
-    users = load_users()
-    if username not in users:
-        raise ValueError(f"User '{username}' was not found.")
-    if len(users) == 1:
-        raise ValueError("Cannot remove the final administrator account.")
+    with _user_registry_write_lock():
+        users = _load_users_file()
+        if users is None:
+            users = _legacy_users()
+        if username not in users:
+            raise ValueError(f"User '{username}' was not found.")
+        if len(users) == 1:
+            raise ValueError("Cannot remove the final administrator account.")
 
-    del users[username]
-    _write_users(users)
+        del users[username]
+        _write_users(users)
 
 
 def _load_auth_record() -> tuple[str, str, bool]:

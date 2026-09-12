@@ -6,6 +6,7 @@ override) so tests never touch grants.db.
 Run with: pytest
 """
 import csv
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 from pathlib import Path
@@ -813,6 +814,26 @@ def test_auth_accepts_a_second_local_administrator(tmp_path, monkeypatch):
             username="second-admin", password="another correct horse battery staple"
         ),
     ) == "second-admin"
+
+
+def test_auth_serializes_concurrent_local_administrator_updates(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("admin", "correct horse battery staple")
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                auth.set_user_password,
+                username,
+                "another correct horse battery staple",
+            )
+            for username in ("first-admin", "second-admin")
+        ]
+        for future in futures:
+            future.result()
+
+    assert auth.list_usernames() == ["admin", "first-admin", "second-admin"]
 
 
 def test_auth_lists_and_removes_a_local_administrator(tmp_path, monkeypatch):

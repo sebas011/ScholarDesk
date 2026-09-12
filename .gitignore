@@ -10,6 +10,7 @@ grants.db-shm
 # committed even though grants.db itself already is.
 auth.txt
 users.json
+users.json.lock
 build/
 dist/
 logs/
