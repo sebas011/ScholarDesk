@@ -850,6 +850,26 @@ def test_release_permission_check_accepts_a_private_windows_directory(tmp_path, 
     release_permissions.check_release_directory_permissions(tmp_path)
 
 
+def test_release_permission_check_includes_runtime_logs(tmp_path, monkeypatch):
+    (tmp_path / "logs").mkdir()
+    captured_paths: list[str] = []
+    monkeypatch.setattr(release_permissions, "_is_windows", lambda: True)
+
+    def verify_paths(*_args, **kwargs):
+        captured_paths.extend(
+            json.loads(kwargs["env"]["SCHOLARDESK_ACL_PATHS"])
+        )
+        return __import__("subprocess").CompletedProcess(
+            [], 0, '{"valid": true, "findings": []}', ""
+        )
+
+    monkeypatch.setattr(release_permissions.subprocess, "run", verify_paths)
+
+    release_permissions.check_release_directory_permissions(tmp_path)
+
+    assert str(tmp_path / "logs") in captured_paths
+
+
 def test_release_permission_check_rejects_broad_windows_access(tmp_path, monkeypatch):
     monkeypatch.setattr(release_permissions, "_is_windows", lambda: True)
     monkeypatch.setattr(

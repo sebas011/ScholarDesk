@@ -80,6 +80,7 @@ def check_release_directory_permissions(release_directory: Path) -> None:
             release_directory / "auth.txt",
             release_directory / USERS_REGISTRY_FILENAME,
             release_directory / "backups",
+            release_directory / "logs",
         )
         if path.exists()
     )
