@@ -8,7 +8,7 @@ from pathlib import Path
 import sqlite3
 
 from app.core.auth import DEFAULT_USERNAME, set_hashed_credentials
-from app.backups import DatabaseBackupError, backup_database
+from app.backups import DatabaseBackupError, backup_database, run_backup_restore_drill
 from app.database import app_dir
 from app.migrations import SchemaVersionError, baseline_legacy_database
 
@@ -50,6 +50,15 @@ def _backup_database(database_path: Path) -> None:
     print(f"Backup created: {backup_path}")
 
 
+def _verify_backup_restore(database_path: Path) -> None:
+    """Create a backup and prove it restores without changing the live database."""
+    try:
+        backup_path = run_backup_restore_drill(database_path, app_dir / "backups")
+    except DatabaseBackupError as error:
+        raise SystemExit(f"Backup restore drill failed: {error}") from error
+    print(f"Backup restore drill passed. Verified backup: {backup_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ScholarDesk local administrator utility.")
     database_action = parser.add_mutually_exclusive_group()
@@ -63,6 +72,11 @@ def main() -> None:
         action="store_true",
         help="create a consistent SQLite backup without modifying the database",
     )
+    database_action.add_argument(
+        "--verify-backup-restore",
+        action="store_true",
+        help="create a backup and verify it restores into a disposable copy",
+    )
     parser.add_argument(
         "--database",
         type=Path,
@@ -75,6 +89,9 @@ def main() -> None:
         return
     if arguments.backup_database:
         _backup_database(arguments.database)
+        return
+    if arguments.verify_backup_restore:
+        _verify_backup_restore(arguments.database)
         return
     _set_password()
 

@@ -139,6 +139,19 @@ backup to `backups\`. From source, run `python -m app.admin --backup-database`.
 Keep backups outside the release folder when possible. Never commit `auth.txt`,
 `grants.db`, or backup files to Git.
 
+### Backup restore drill
+
+Run this regularly after confirming ScholarDesk is open or closed as usual:
+
+```powershell
+.\ScholarDeskAdmin.exe --verify-backup-restore
+```
+
+The drill creates a normal timestamped backup in `backups\`, restores that backup
+only into a disposable temporary database, and verifies its schema and row counts.
+It never overwrites or modifies the live `grants.db`. From source, run
+`python -m app.admin --verify-backup-restore`.
+
 ### Health check
 
 `GET /health` requires the same local credentials as the rest of ScholarDesk.
