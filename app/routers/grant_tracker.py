@@ -17,4 +17,4 @@ router = APIRouter()
 @router.get("/", response_class=HTMLResponse)
 def grant_tracker_launcher(request: Request) -> HTMLResponse:
     """Render the Grant Tracker landing page without importing payroll code."""
-    return templates.TemplateResponse(request, "launcher.html", {})
+    return templates.TemplateResponse(request, "launcher.html", {"show_navigation": False})

@@ -1,4 +1,4 @@
-"""Local HTTP Basic authentication and credential administration helpers.
+"""Local account authentication and credential administration helpers.
 
 Passwords written by the administrator helper use PBKDF2-HMAC-SHA256. Legacy
 ``password=`` files are deliberately rejected at runtime; running
@@ -29,6 +29,7 @@ from app.core.logging import logger
 CREDENTIALS_FILE = app_dir / "auth.txt"
 USERS_FILE_NAME = "users.json"
 USERS_LOCK_FILE_NAME = "users.json.lock"
+SESSION_SECRET_FILE_NAME = "session_secret.txt"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
 PASSWORD_HASH_SCHEME = "pbkdf2_sha256"
@@ -114,6 +115,28 @@ class FailedLoginRateLimiter:
 
 
 failed_login_limiter = FailedLoginRateLimiter()
+
+
+def session_secret() -> str:
+    """Return the durable signing secret used by browser login sessions.
+
+    The secret is local runtime state, like ``users.json``. It is generated
+    once and must remain private; replacing it safely signs every browser out.
+    """
+    secret_file = CREDENTIALS_FILE.with_name(SESSION_SECRET_FILE_NAME)
+    try:
+        if secret_file.exists():
+            secret = secret_file.read_text(encoding="utf-8").strip()
+            if len(secret) >= 32:
+                return secret
+
+        secret = secrets.token_urlsafe(48)
+        replacement = secret_file.with_name(f".{secret_file.name}.new")
+        replacement.write_text(f"{secret}\n", encoding="utf-8")
+        replacement.replace(secret_file)
+        return secret
+    except OSError as error:
+        raise RuntimeError("Session credential storage is unavailable.") from error
 
 
 def _ensure_credentials_file() -> None:
@@ -354,10 +377,14 @@ def using_default_password() -> bool:
     return not load_users()
 
 
-def verify_credentials(
+def authenticate_user(
     request: Request,
-    credentials: HTTPBasicCredentials = Depends(security),
+    username: str,
+    password: str,
+    *,
+    basic_challenge: bool = False,
 ) -> str:
+    """Authenticate a submitted username/password against the local registry."""
     try:
         users = load_users()
     except OSError:
@@ -382,9 +409,9 @@ def verify_credentials(
             headers={"Retry-After": str(retry_after)},
         )
 
-    stored_credential = users.get(credentials.username)
+    stored_credential = users.get(username)
     password_is_valid = verify_password(
-        credentials.password,
+        password,
         stored_credential or DUMMY_PASSWORD_HASH,
     )
     if stored_credential is None or not password_is_valid:
@@ -399,8 +426,30 @@ def verify_credentials(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password.",
-            headers={"WWW-Authenticate": "Basic"},
+            headers={"WWW-Authenticate": "Basic"} if basic_challenge else None,
         )
     failed_login_limiter.clear(client_address)
-    request.state.authenticated_user = credentials.username
-    return credentials.username
+    request.state.authenticated_user = username
+    return username
+
+
+def require_authenticated_session(request: Request) -> str:
+    """Require a signed browser session on Grant Tracker application routes."""
+    username = request.session.get("username")
+    if not isinstance(username, str) or not username:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required.")
+    request.state.authenticated_user = username
+    return username
+
+
+def verify_credentials(
+    request: Request,
+    credentials: HTTPBasicCredentials = Depends(security),
+) -> str:
+    """Compatibility helper for direct callers; HTTP routes use sessions instead."""
+    return authenticate_user(
+        request,
+        credentials.username,
+        credentials.password,
+        basic_challenge=True,
+    )

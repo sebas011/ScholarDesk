@@ -4,13 +4,13 @@ Local desktop app for tracking **scholars**, **department assignments**, and **g
 
 ScholarDesk is a single-user FastAPI + SQLite web app, packaged as a Windows executable (`ScholarDesk.exe`). It is a relational rewrite of a VBA/Excel grant tracker: real foreign keys instead of a shared `EmployeeID` string, date ranges on assignments, and year-based filtering that actually answers "who was active in this year?"
 
-The server always binds to `127.0.0.1` and requires HTTP Basic Auth. It is not a LAN-facing web server.
+The server always binds to `127.0.0.1` and requires a signed browser login session. It is not a LAN-facing web server.
 
 ## LAN access through a TLS proxy
 
 To serve other computers, run a TLS-terminating reverse proxy on the same Windows machine. Configure the proxy to listen on the LAN over HTTPS and forward only to `http://127.0.0.1:8000`.
 
-Keep port 8000 blocked from the LAN. ScholarDesk deliberately ignores `network.txt`; it must remain loopback-only so HTTP Basic credentials and scholar data cannot be sent across the network without TLS.
+Keep port 8000 blocked from the LAN. ScholarDesk deliberately ignores `network.txt`; it must remain loopback-only so browser sessions and scholar data cannot be sent across the network without TLS.
 
 ### Cathedra Caddy deployment
 
@@ -104,7 +104,7 @@ pytest
 - Fresh databases record the current schema version on startup. Existing databases are never
   silently baselined; every unversioned database fails safely until the administrator command
   below validates, backs up, and baselines it.
-- HTTP Basic Auth and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
+- Local browser session login and optional LAN binding — suitable for trusted local networks only, not a substitute for production identity and access management
 
 ---
 
@@ -235,7 +235,8 @@ The release folder contains runtime state beside the executable:
 - `ScholarDeskAdmin.exe` — local password-reset utility; keep private
 - `grants.db` — live SQLite data
 - `auth.txt` — legacy single-account credentials retained for migration
-- `users.json` — local multi-user Basic Auth credential registry
+- `users.json` — local multi-user login credential registry
+- `session_secret.txt` — private signing secret for browser sessions
 - `logs\` — runtime logs
 - `SHA256SUMS.txt` — executable integrity record
 

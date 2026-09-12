@@ -44,7 +44,7 @@ from app.services.payroll import parse_lab_units
 from unittest.mock import patch
 from app.services.payroll_import import audit_payroll_projection
 from app.core.logging import JsonFormatter
-from app.core.auth import verify_credentials
+from app.core.auth import require_authenticated_session
 from app.services.payroll_import import summarize_payroll_audit
 from app.main import on_unhandled_exception
 from app.services.payroll_import import load_workload_assignments
@@ -89,8 +89,8 @@ engine = create_engine(
 TestSession = sessionmaker(bind=engine)
 
 
-def override_verify_credentials(request: Request) -> str:
-    """Bypass the Basic Auth gate entirely for tests - same reasoning
+def override_authenticated_session(request: Request) -> str:
+    """Bypass the signed browser session for isolated route tests - same reasoning
     as overriding get_db above: tests must never depend on, or write
     to, the real auth.txt file next to the real grants.db. Without
     this, running pytest would create a stray auth.txt in the repo
@@ -100,7 +100,7 @@ def override_verify_credentials(request: Request) -> str:
     return "test-user"
 
 
-app.dependency_overrides[verify_credentials] = override_verify_credentials
+app.dependency_overrides[require_authenticated_session] = override_authenticated_session
 
 
 def _authentication_request(client_address: str = "127.0.0.1") -> Request:
@@ -144,7 +144,7 @@ def fresh_db():
 
 @pytest.fixture
 def client():
-    app.dependency_overrides[verify_credentials] = override_verify_credentials
+    app.dependency_overrides[require_authenticated_session] = override_authenticated_session
     app.dependency_overrides[get_db] = override_get_db
 
     test_client = TestClient(app)
@@ -164,6 +164,86 @@ def client():
 def test_api_documentation_is_not_exposed(client):
     for path in ("/docs", "/openapi.json", "/redoc"):
         assert client.get(path).status_code == 404
+
+
+def test_browser_login_protects_grant_tracker_and_controls_navigation(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("session-user", "correct horse battery staple")
+
+    original_override = app.dependency_overrides.pop(require_authenticated_session, None)
+    try:
+        with TestClient(app) as browser:
+            protected = browser.get("/", follow_redirects=False)
+            assert protected.status_code == 303
+            assert protected.headers["location"] == "/login?next=/"
+
+            login_page = browser.get("/login")
+            csrf_token = browser.cookies["scholardesk_csrf"]
+            assert login_page.status_code == 200
+            assert "<header" not in login_page.text
+
+            login = browser.post(
+                "/login",
+                data={
+                    "username": "session-user",
+                    "password": "correct horse battery staple",
+                    "csrf_token": csrf_token,
+                    "next": "/",
+                },
+                follow_redirects=False,
+            )
+            assert login.status_code == 303
+            assert login.headers["location"] == "/"
+
+            launcher = browser.get("/")
+            assert launcher.status_code == 200
+            assert "<header" not in launcher.text
+            assert "Faculty Profile &amp; Payroll" in launcher.text
+            assert "Coming soon. This module is not yet available." in launcher.text
+
+            home = browser.get("/home")
+            assert home.status_code == 200
+            assert "<header" in home.text
+            assert "Sign out" in home.text
+
+            logout = browser.post(
+                "/logout",
+                data={"csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+            assert logout.status_code == 303
+            assert logout.headers["location"] == "/login"
+            assert browser.get("/", follow_redirects=False).status_code == 303
+    finally:
+        if original_override is not None:
+            app.dependency_overrides[require_authenticated_session] = original_override
+
+
+def test_browser_login_rejects_invalid_credentials_without_basic_auth_prompt(tmp_path, monkeypatch):
+    credentials_file = tmp_path / "auth.txt"
+    monkeypatch.setattr(auth, "CREDENTIALS_FILE", credentials_file)
+    auth.set_hashed_credentials("session-user", "correct horse battery staple")
+
+    original_override = app.dependency_overrides.pop(require_authenticated_session, None)
+    try:
+        with TestClient(app) as browser:
+            browser.get("/login")
+            csrf_token = browser.cookies["scholardesk_csrf"]
+            response = browser.post(
+                "/login",
+                data={
+                    "username": "session-user",
+                    "password": "wrong password",
+                    "csrf_token": csrf_token,
+                },
+            )
+            assert response.status_code == 401
+            assert "Incorrect username or password." in response.text
+            assert "www-authenticate" not in response.headers
+    finally:
+        if original_override is not None:
+            app.dependency_overrides[require_authenticated_session] = original_override
 
 
 def test_health_check_reports_database_availability(client, monkeypatch):
@@ -247,7 +327,7 @@ def test_bundled_browser_assets_match_recorded_hashes():
 
 @pytest.fixture
 def non_raising_client():
-    app.dependency_overrides[verify_credentials] = override_verify_credentials
+    app.dependency_overrides[require_authenticated_session] = override_authenticated_session
     app.dependency_overrides[get_db] = override_get_db
 
     test_client = TestClient(app, raise_server_exceptions=False)

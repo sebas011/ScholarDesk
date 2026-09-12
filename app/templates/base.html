@@ -116,6 +116,7 @@
 <body class="min-h-screen">
     <div id="htmx-progress" class="htmx-indicator"></div>
     
+    {% if show_navigation is not defined or show_navigation %}
     <header class="bg-navy-900 text-white sticky top-0 z-50 shadow-md">
         <div class="max-w-[1400px] mx-auto px-6 h-[56px] flex items-center gap-8">
             <a href="/" class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
@@ -125,9 +126,14 @@
             <nav class="flex items-center gap-1">
     <a href="/home" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/' %}bg-white/10 text-white{% endif %}">Home</a>
     <a href="/dashboard" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors {% if request.url.path == '/dashboard' %}bg-white/10 text-white{% endif %}">Directory</a>
+    <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">Sign out</button>
+    </form>
 </nav>
         </div>
     </header>
+    {% endif %}
     
     <main class="max-w-[1400px] mx-auto px-6 py-5">
         {% block content %}{% endblock %}

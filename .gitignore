@@ -11,6 +11,7 @@ grants.db-shm
 auth.txt
 users.json
 users.json.lock
+session_secret.txt
 build/
 dist/
 logs/

@@ -1,25 +1,23 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from starlette.middleware.sessions import SessionMiddleware
 from urllib.parse import urlsplit
 import secrets
 from app.core.request_limits import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
 from app.database import Base, app_dir, engine
 from app.migrations import ensure_schema_version, existing_table_names
-from app.routers import grant_tracker, records, scholars
+from app.routers import grant_tracker, login, records, scholars
 from app.templates_config import STATIC_DIRECTORY, templates
-
-from fastapi import Depends
 
 from app.core.logging import configure_logging
 from app.core.logging import logger
-
-from app.core.auth import verify_credentials
+from app.core.auth import require_authenticated_session, session_secret
 
 configure_logging()
 
@@ -45,19 +43,27 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Grant Tracking System",
     lifespan=lifespan,
-    dependencies=[Depends(verify_credentials)],
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
 )
 
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret(),
+    session_cookie="scholardesk_session",
+    max_age=8 * 60 * 60,
+    same_site="strict",
+    https_only=False,
+)
 app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
-app.include_router(grant_tracker.router)
-app.include_router(scholars.router)
-app.include_router(records.router)
+app.include_router(login.router)
+app.include_router(grant_tracker.router, dependencies=[Depends(require_authenticated_session)])
+app.include_router(scholars.router, dependencies=[Depends(require_authenticated_session)])
+app.include_router(records.router, dependencies=[Depends(require_authenticated_session)])
 
 
-@app.get("/health", dependencies=[Depends(verify_credentials)])
+@app.get("/health", dependencies=[Depends(require_authenticated_session)])
 def health_check() -> JSONResponse:
     """Report whether this process can read Grant Tracker's core table."""
     try:
@@ -218,6 +224,20 @@ async def on_validation_error(request: Request, exc: RequestValidationError):
         status_code=422,
     )
     return _render_error(request, message, status_code=422)
+
+
+@app.exception_handler(HTTPException)
+def on_http_exception(request: Request, exc: HTTPException):
+    """Redirect interactive unauthenticated requests to the login page."""
+    if exc.status_code == 401 and request.url.path != "/health":
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse(status_code=401, headers={"HX-Redirect": "/login"})
+        return RedirectResponse(url=f"/login?next={request.url.path}", status_code=303)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
 
 
 def _is_sqlite_lock_error(exc: Exception) -> bool:

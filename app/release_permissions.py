@@ -20,6 +20,7 @@ _BROAD_ACCESS_SIDS = (
     "S-1-5-32-546",  # BUILTIN\\Guests
 )
 USERS_REGISTRY_FILENAME = "users.json"
+SESSION_SECRET_FILENAME = "session_secret.txt"
 _POWERSHELL_ACL_CHECK = r"""
 $paths = ConvertFrom-Json ([Environment]::GetEnvironmentVariable('SCHOLARDESK_ACL_PATHS'))
 $broadSids = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545', 'S-1-5-32-546')
@@ -79,6 +80,7 @@ def check_release_directory_permissions(release_directory: Path) -> None:
             release_directory / "grants.db",
             release_directory / "auth.txt",
             release_directory / USERS_REGISTRY_FILENAME,
+            release_directory / SESSION_SECRET_FILENAME,
             release_directory / "backups",
             release_directory / "logs",
         )
